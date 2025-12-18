@@ -80,6 +80,11 @@ func main() {
 	fmt.Printf("  Media path:   %s\n", cfg.MediaPath)
 	fmt.Printf("  Config:       %s\n", cfgPath)
 	fmt.Printf("  Queue file:   %s\n", cfg.QueueFile)
+	if cfg.TempPath != "" {
+		fmt.Printf("  Temp path:    %s\n", cfg.TempPath)
+	} else {
+		fmt.Printf("  Temp path:    (same as source)\n")
+	}
 	fmt.Printf("  Workers:      %d\n", cfg.Workers)
 	fmt.Printf("  Original:     %s\n", cfg.OriginalHandling)
 	fmt.Println()
