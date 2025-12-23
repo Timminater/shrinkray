@@ -204,8 +204,9 @@ func TestUpdateConfigEndpoint(t *testing.T) {
 	handler, _ := setupTestHandler(t)
 
 	// Update config
+	keepVal := "keep"
 	reqBody := UpdateConfigRequest{
-		OriginalHandling: "keep",
+		OriginalHandling: &keepVal,
 	}
 	body, _ := json.Marshal(reqBody)
 

@@ -669,6 +669,21 @@
             flex-shrink: 0;
         }
 
+        .notify-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .notify-label input {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
         /* Settings Menu */
         .settings-overlay {
             position: fixed;
@@ -800,6 +815,26 @@
             color: var(--text-primary);
             cursor: pointer;
             min-width: 160px;
+        }
+
+        .setting-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-family: var(--font-sans);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            width: 200px;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .setting-input::placeholder {
+            color: var(--text-tertiary);
         }
 
         .settings-status {
@@ -985,6 +1020,10 @@
                             </svg>
                             Queue
                         </span>
+                        <label class="notify-label" id="notify-container" style="display: none">
+                            <input type="checkbox" id="notify-checkbox" onchange="updateNotifySetting(this.checked)">
+                            <span>Notify when done</span>
+                        </label>
                     </div>
                     <div class="queue-list" id="queue-list">
                         <div class="queue-empty">
@@ -1048,6 +1087,38 @@
                                 <option value="5">5</option>
                                 <option value="6">6</option>
                             </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting-group-title">Notifications</div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Pushover User Key</div>
+                            <div class="setting-desc">Your Pushover user/group key</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="text" class="setting-input" id="setting-pushover-user"
+                                   placeholder="Enter user key" onchange="updateSetting('pushover_user_key', this.value)">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Pushover App Token</div>
+                            <div class="setting-desc">Your Pushover application token</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="text" class="setting-input" id="setting-pushover-token"
+                                   placeholder="Enter app token" onchange="updateSetting('pushover_app_token', this.value)">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Test Notification</div>
+                            <div class="setting-desc">Send a test to verify setup</div>
+                        </div>
+                        <div class="setting-control">
+                            <button class="btn btn-secondary btn-sm" id="test-pushover-btn" onclick="testPushover()">Test</button>
                         </div>
                     </div>
                 </div>
@@ -1397,6 +1468,9 @@
                 if (data.type === 'init') {
                     updateJobs(data.jobs);
                     updateStats(data.stats);
+                } else if (data.type === 'notify_sent') {
+                    // Notification was sent, uncheck the checkbox
+                    document.getElementById('notify-checkbox').checked = false;
                 } else {
                     refreshJobs();
                     if (data.type === 'complete' || data.type === 'failed') {
@@ -1426,6 +1500,20 @@
                 const config = await resp.json();
                 document.getElementById('setting-original-handling').value = config.original_handling || 'replace';
                 document.getElementById('setting-workers').value = config.workers || 1;
+
+                // Pushover settings
+                document.getElementById('setting-pushover-user').value = config.pushover_user_key || '';
+                document.getElementById('setting-pushover-token').value = config.pushover_app_token || '';
+
+                // Show/hide notify checkbox based on whether Pushover is configured
+                const notifyContainer = document.getElementById('notify-container');
+                const notifyCheckbox = document.getElementById('notify-checkbox');
+                if (config.pushover_configured) {
+                    notifyContainer.style.display = 'flex';
+                    notifyCheckbox.checked = config.notify_on_complete || false;
+                } else {
+                    notifyContainer.style.display = 'none';
+                }
             } catch (err) {
                 console.error('Load settings error:', err);
             }
@@ -1451,9 +1539,52 @@
                 statusEl.textContent = 'Settings saved';
                 statusEl.className = 'settings-status';
                 setTimeout(() => { statusEl.textContent = ''; }, 2000);
+
+                // Reload settings to update notify checkbox visibility
+                if (key === 'pushover_user_key' || key === 'pushover_app_token') {
+                    loadSettings();
+                }
             } catch (err) {
                 statusEl.textContent = `Error: ${err.message}`;
                 statusEl.className = 'settings-status error';
+            }
+        }
+
+        async function updateNotifySetting(checked) {
+            try {
+                await fetch('/api/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notify_on_complete: checked })
+                });
+            } catch (err) {
+                console.error('Update notify setting error:', err);
+            }
+        }
+
+        async function testPushover() {
+            const btn = document.getElementById('test-pushover-btn');
+            const statusEl = document.getElementById('settings-status');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const resp = await fetch('/api/pushover/test', { method: 'POST' });
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(data.error || 'Failed to send test');
+                }
+
+                statusEl.textContent = 'Test notification sent!';
+                statusEl.className = 'settings-status';
+                setTimeout(() => { statusEl.textContent = ''; }, 3000);
+            } catch (err) {
+                statusEl.textContent = `Error: ${err.message}`;
+                statusEl.className = 'settings-status error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test';
             }
         }
 

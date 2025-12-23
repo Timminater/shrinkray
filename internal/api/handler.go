@@ -11,6 +11,7 @@ import (
 	"github.com/graysonwilson/shrinkray/internal/config"
 	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
 	"github.com/graysonwilson/shrinkray/internal/jobs"
+	"github.com/graysonwilson/shrinkray/internal/pushover"
 )
 
 // Handler provides HTTP API handlers
@@ -20,6 +21,7 @@ type Handler struct {
 	workerPool *jobs.WorkerPool
 	cfg        *config.Config
 	cfgPath    string
+	pushover   *pushover.Client
 }
 
 // NewHandler creates a new API handler
@@ -30,6 +32,7 @@ func NewHandler(browser *browse.Browser, queue *jobs.Queue, workerPool *jobs.Wor
 		workerPool: workerPool,
 		cfg:        cfg,
 		cfgPath:    cfgPath,
+		pushover:   pushover.NewClient(cfg.PushoverUserKey, cfg.PushoverAppToken),
 	}
 }
 
@@ -206,17 +209,24 @@ func (h *Handler) ClearQueue(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	// Return a sanitized config (no sensitive paths exposed)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"media_path":        h.cfg.MediaPath,
-		"original_handling": h.cfg.OriginalHandling,
-		"workers":           h.cfg.Workers,
-		"has_temp_path":     h.cfg.TempPath != "",
+		"media_path":            h.cfg.MediaPath,
+		"original_handling":     h.cfg.OriginalHandling,
+		"workers":               h.cfg.Workers,
+		"has_temp_path":         h.cfg.TempPath != "",
+		"pushover_user_key":     h.cfg.PushoverUserKey,
+		"pushover_app_token":    h.cfg.PushoverAppToken,
+		"pushover_configured":   h.pushover.IsConfigured(),
+		"notify_on_complete":    h.cfg.NotifyOnComplete,
 	})
 }
 
 // UpdateConfigRequest is the request body for updating config
 type UpdateConfigRequest struct {
-	OriginalHandling string `json:"original_handling,omitempty"`
-	Workers          int    `json:"workers,omitempty"`
+	OriginalHandling *string `json:"original_handling,omitempty"`
+	Workers          *int    `json:"workers,omitempty"`
+	PushoverUserKey  *string `json:"pushover_user_key,omitempty"`
+	PushoverAppToken *string `json:"pushover_app_token,omitempty"`
+	NotifyOnComplete *bool   `json:"notify_on_complete,omitempty"`
 }
 
 // UpdateConfig handles PUT /api/config
@@ -228,20 +238,34 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only allow updating certain fields
-	if req.OriginalHandling != "" {
-		if req.OriginalHandling != "replace" && req.OriginalHandling != "keep" {
+	if req.OriginalHandling != nil {
+		if *req.OriginalHandling != "replace" && *req.OriginalHandling != "keep" {
 			writeError(w, http.StatusBadRequest, "original_handling must be 'replace' or 'keep'")
 			return
 		}
-		h.cfg.OriginalHandling = req.OriginalHandling
+		h.cfg.OriginalHandling = *req.OriginalHandling
 	}
 
-	if req.Workers > 0 {
-		if req.Workers > 6 {
-			req.Workers = 6 // Cap at 6 workers
+	if req.Workers != nil && *req.Workers > 0 {
+		workers := *req.Workers
+		if workers > 6 {
+			workers = 6 // Cap at 6 workers
 		}
 		// Dynamically resize the worker pool
-		h.workerPool.Resize(req.Workers)
+		h.workerPool.Resize(workers)
+	}
+
+	// Handle Pushover settings
+	if req.PushoverUserKey != nil {
+		h.cfg.PushoverUserKey = *req.PushoverUserKey
+		h.pushover.UserKey = *req.PushoverUserKey
+	}
+	if req.PushoverAppToken != nil {
+		h.cfg.PushoverAppToken = *req.PushoverAppToken
+		h.pushover.AppToken = *req.PushoverAppToken
+	}
+	if req.NotifyOnComplete != nil {
+		h.cfg.NotifyOnComplete = *req.NotifyOnComplete
 	}
 
 	// Persist config to disk
@@ -265,4 +289,24 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ClearCache(w http.ResponseWriter, r *http.Request) {
 	h.browser.ClearCache()
 	writeJSON(w, http.StatusOK, map[string]string{"status": "cache cleared"})
+}
+
+// TestPushover handles POST /api/pushover/test
+func (h *Handler) TestPushover(w http.ResponseWriter, r *http.Request) {
+	if !h.pushover.IsConfigured() {
+		writeError(w, http.StatusBadRequest, "Pushover credentials not configured")
+		return
+	}
+
+	if err := h.pushover.Test(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "Test notification sent"})
+}
+
+// GetPushover returns the Pushover client (for SSE handler)
+func (h *Handler) GetPushover() *pushover.Client {
+	return h.pushover
 }

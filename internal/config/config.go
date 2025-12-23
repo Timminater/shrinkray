@@ -30,6 +30,15 @@ type Config struct {
 
 	// QueueFile is where the job queue is persisted (default: config dir + queue.json)
 	QueueFile string `yaml:"queue_file"`
+
+	// PushoverUserKey is the Pushover user key for notifications
+	PushoverUserKey string `yaml:"pushover_user_key"`
+
+	// PushoverAppToken is the Pushover application token for notifications
+	PushoverAppToken string `yaml:"pushover_app_token"`
+
+	// NotifyOnComplete triggers a Pushover notification when all jobs finish
+	NotifyOnComplete bool `yaml:"notify_on_complete"`
 }
 
 // DefaultConfig returns a config with sensible defaults

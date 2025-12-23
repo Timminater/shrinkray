@@ -28,6 +28,7 @@ func NewRouter(h *Handler, staticFS embed.FS, debugMode bool) *http.ServeMux {
 
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/cache/clear", h.ClearCache)
+	mux.HandleFunc("POST /api/pushover/test", h.TestPushover)
 
 	// Determine which UI to serve
 	uiPath := "web/templates"
@@ -107,6 +108,7 @@ func NewRouterWithoutStatic(h *Handler) *http.ServeMux {
 
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/cache/clear", h.ClearCache)
+	mux.HandleFunc("POST /api/pushover/test", h.TestPushover)
 
 	return mux
 }
