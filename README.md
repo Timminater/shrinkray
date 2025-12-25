@@ -8,7 +8,7 @@ A simple video transcoding tool for Unraid. Select a folder, pick a preset, and 
    - **Repository**: `ghcr.io/gwlsn/shrinkray:latest`
    - **WebUI**: `8080`
    - **Volumes**: `/config` → appdata, `/media` → your media library
-   - **Optional**: `/temp` → fast storage for temp files (set `temp_path: /temp` in config)
+   - **Optional**: `/temp` → fast storage for temp file
 
 2. Open the WebUI, browse to a folder, select files, and click **Start Transcode**
 
@@ -30,8 +30,6 @@ docker run -d \
 ```bash
   -v /path/to/fast/storage:/temp
 ```
-
-Then set `temp_path: /temp` in `/config/shrinkray.yaml`. This is useful when your media is on slower storage (spinning disks) but you have fast NVMe available.
 
 For hardware acceleration, add the appropriate device:
 
