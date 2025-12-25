@@ -36,10 +36,10 @@ Then set `temp_path: /temp` in `/config/shrinkray.yaml`. This is useful when you
 For hardware acceleration, add the appropriate device:
 
 ```bash
-# Intel QSV
+# Intel QSV / AMD VAAPI
 --device /dev/dri:/dev/dri
 
-# NVIDIA (requires nvidia-container-toolkit)
+# NVIDIA (requires Nvidia-Driver plugin on Unraid, or nvidia-container-toolkit elsewhere)
 --runtime=nvidia --gpus all
 ```
 
