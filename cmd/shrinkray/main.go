@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"syscall"
 
-	shrinkray "github.com/graysonwilson/shrinkray"
-	"github.com/graysonwilson/shrinkray/internal/api"
-	"github.com/graysonwilson/shrinkray/internal/browse"
-	"github.com/graysonwilson/shrinkray/internal/config"
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
-	"github.com/graysonwilson/shrinkray/internal/jobs"
+	shrinkray "github.com/gwlsn/shrinkray"
+	"github.com/gwlsn/shrinkray/internal/api"
+	"github.com/gwlsn/shrinkray/internal/browse"
+	"github.com/gwlsn/shrinkray/internal/config"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/jobs"
 )
 
 func main() {

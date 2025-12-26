@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/config"
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/config"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 )
 
 func TestFormatDuration(t *testing.T) {

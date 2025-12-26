@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 )
 
 // Queue manages the job queue with persistence

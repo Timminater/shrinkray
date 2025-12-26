@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/browse"
-	"github.com/graysonwilson/shrinkray/internal/config"
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
-	"github.com/graysonwilson/shrinkray/internal/jobs"
-	"github.com/graysonwilson/shrinkray/internal/pushover"
+	"github.com/gwlsn/shrinkray/internal/browse"
+	"github.com/gwlsn/shrinkray/internal/config"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/jobs"
+	"github.com/gwlsn/shrinkray/internal/pushover"
 )
 
 // Handler provides HTTP API handlers

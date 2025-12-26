@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/config"
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/config"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 )
 
 // CacheInvalidator is called when a file is transcoded to invalidate cached probe data

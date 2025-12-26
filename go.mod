@@ -1,4 +1,4 @@
-module github.com/graysonwilson/shrinkray
+module github.com/gwlsn/shrinkray
 
 go 1.22
 

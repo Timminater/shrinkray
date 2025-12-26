@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 )
 
 func TestBrowser(t *testing.T) {

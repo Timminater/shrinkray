@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/graysonwilson/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 )
 
 // Entry represents a file or directory in the browser
