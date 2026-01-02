@@ -1,4 +1,4 @@
-media_path: ./testdata
+media_path: ./media
 temp_path: ""
 original_handling: keep
 workers: 3
@@ -8,8 +8,8 @@ queue_file: config/queue.json
 pushover_user_key: ""
 pushover_app_token: ""
 notify_on_complete: false
-quality_hevc: 26
-quality_av1: 35
+quality_hevc: 0
+quality_av1: 0
 schedule_enabled: false
 schedule_start_hour: 22
 schedule_end_hour: 6
