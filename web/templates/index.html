@@ -284,6 +284,10 @@
             font-weight: 500;
         }
 
+        .breadcrumb-collapsed {
+            color: var(--text-tertiary);
+        }
+
         .file-list {
             list-style: none;
             overflow-y: auto;
@@ -1517,6 +1521,7 @@
         }
 
         let currentPath = '';
+        let mediaRoot = '';  // Will be set on first browse
         let selectedPaths = new Set();
         let selectedFileCounts = new Map();  // Track file count for each selected path (1 for files, N for folders)
         let totalSelectableCount = 0;  // Track total selectable items to avoid DOM queries
@@ -1553,14 +1558,54 @@
 
                 // Update breadcrumb
                 const breadcrumb = document.getElementById('breadcrumb');
-                let crumbs = `<a href="#" onclick="browse(''); return false;">Home</a>`;
-                if (data.parent) {
-                    crumbs += `<span class="breadcrumb-sep">/</span>`;
-                    crumbs += `<a href="#" onclick="browse('${data.parent}'); return false;">...</a>`;
+
+                // Store media root on first browse (when at root, there's no parent)
+                if (!mediaRoot || !data.parent) {
+                    mediaRoot = data.path;
                 }
-                const currentFolder = data.path.split('/').pop() || 'Root';
-                crumbs += `<span class="breadcrumb-sep">/</span>`;
-                crumbs += `<span class="breadcrumb-current">${currentFolder}</span>`;
+
+                let crumbs = `<a href="#" onclick="browse(''); return false;">Home</a>`;
+
+                if (data.path !== mediaRoot) {
+                    // Get the relative path from media root
+                    const relativePath = data.path.substring(mediaRoot.length);
+                    const segments = relativePath.split('/').filter(s => s);
+                    const MAX_VISIBLE_SEGMENTS = 3;
+
+                    if (segments.length > MAX_VISIBLE_SEGMENTS) {
+                        // Collapse middle segments: Home / ... / last 3 segments
+                        crumbs += `<span class="breadcrumb-sep">/</span>`;
+                        crumbs += `<span class="breadcrumb-collapsed">...</span>`;
+
+                        const startIndex = segments.length - MAX_VISIBLE_SEGMENTS;
+                        let cumulativePath = mediaRoot + '/' + segments.slice(0, startIndex).join('/');
+
+                        for (let i = startIndex; i < segments.length; i++) {
+                            cumulativePath += '/' + segments[i];
+                            crumbs += `<span class="breadcrumb-sep">/</span>`;
+
+                            if (i === segments.length - 1) {
+                                crumbs += `<span class="breadcrumb-current">${segments[i]}</span>`;
+                            } else {
+                                crumbs += `<a href="#" onclick="browse('${cumulativePath}'); return false;">${segments[i]}</a>`;
+                            }
+                        }
+                    } else {
+                        // Show full path
+                        let cumulativePath = mediaRoot;
+                        segments.forEach((segment, index) => {
+                            cumulativePath += '/' + segment;
+                            crumbs += `<span class="breadcrumb-sep">/</span>`;
+
+                            if (index === segments.length - 1) {
+                                crumbs += `<span class="breadcrumb-current">${segment}</span>`;
+                            } else {
+                                crumbs += `<a href="#" onclick="browse('${cumulativePath}'); return false;">${segment}</a>`;
+                            }
+                        });
+                    }
+                }
+
                 breadcrumb.innerHTML = crumbs;
 
                 // Update file list

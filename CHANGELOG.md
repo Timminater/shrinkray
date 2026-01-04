@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-01-04
+
+### Fixed
+- Breadcrumb navigation now shows full path instead of always collapsing to "..." (#22)
+- Users can navigate to any intermediate folder, not just Home or immediate parent
+- Deep paths (>3 levels) show last 3 folders: `Home / ... / Parent / GrandParent / Current`
+
 ## [1.3.1] - 2026-01-04
 
 ### Fixed
