@@ -546,12 +546,15 @@ func generateID() string {
 
 // checkSkipReason returns an error message if the file should be skipped, empty string otherwise.
 func checkSkipReason(probe *ffmpeg.ProbeResult, preset *ffmpeg.Preset) string {
-	// For downscale presets, check if file already meets resolution target
-	if preset.MaxHeight > 0 && probe.Height <= preset.MaxHeight {
-		return fmt.Sprintf("File is already %dp or smaller", preset.MaxHeight)
+	// For downscale presets, only check resolution (codec doesn't matter)
+	if preset.MaxHeight > 0 {
+		if probe.Height <= preset.MaxHeight {
+			return fmt.Sprintf("File is already %dp or smaller", preset.MaxHeight)
+		}
+		return "" // Needs downscaling, proceed regardless of codec
 	}
 
-	// Check if file is already in target codec
+	// For compression presets (no downscaling), check codec
 	var isAlreadyTarget bool
 	var codecName string
 

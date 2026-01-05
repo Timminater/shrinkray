@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.4] - 2026-01-05
+
+### Fixed
+- Auto-detect `/temp` mount in Docker - no manual config needed (#23)
+- Downscale presets (1080p/720p) no longer incorrectly skip files already in HEVC/AV1
+
+### Added
+- `TEMP_PATH` environment variable support for explicit temp directory override
+
 ## [1.3.3] - 2026-01-05
 
 ### Fixed
