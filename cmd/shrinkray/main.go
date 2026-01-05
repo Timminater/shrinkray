@@ -52,6 +52,18 @@ func main() {
 		cfg.MediaPath = *mediaPath
 	}
 
+	// Override temp path with environment variable
+	if envTemp := os.Getenv("TEMP_PATH"); envTemp != "" {
+		cfg.TempPath = envTemp
+	}
+
+	// Auto-detect /temp mount if temp_path is still not configured
+	if cfg.TempPath == "" {
+		if info, err := os.Stat("/temp"); err == nil && info.IsDir() {
+			cfg.TempPath = "/temp"
+		}
+	}
+
 	// Validate media path exists
 	if _, err := os.Stat(cfg.MediaPath); os.IsNotExist(err) {
 		log.Fatalf("Media path does not exist: %s", cfg.MediaPath)
