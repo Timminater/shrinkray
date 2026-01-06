@@ -90,8 +90,6 @@ All presets copy audio and subtitles unchanged (stream copy).
 
 ---
 
----
-
 ## Hardware Acceleration
 
 Shrinkray automatically detects and uses the best available hardware encoder. No configuration required—just pass through your GPU.
