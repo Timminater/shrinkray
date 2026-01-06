@@ -90,53 +90,6 @@ All presets copy audio and subtitles unchanged (stream copy).
 
 ---
 
-## FFmpeg Options Reference
-
-Shrinkray automatically selects the best available encoder for your hardware. Below are the exact FFmpeg settings used.
-
-### HEVC Encoders
-
-| Encoder | FFmpeg Encoder | Quality Flag | Default Value | Additional Args |
-|---------|----------------|--------------|---------------|-----------------|
-| **Software** | `libx265` | `-crf` | 26 | `-preset medium` |
-| **VideoToolbox** | `hevc_videotoolbox` | `-b:v` | 35% of source bitrate | `-allow_sw 1` |
-| **NVENC** | `hevc_nvenc` | `-cq` | 28 | `-preset p4 -tune hq -rc vbr` |
-| **Quick Sync** | `hevc_qsv` | `-global_quality` | 27 | `-preset medium` |
-| **VAAPI** | `hevc_vaapi` | `-qp` | 27 | — |
-
-### AV1 Encoders
-
-| Encoder | FFmpeg Encoder | Quality Flag | Default Value | Additional Args |
-|---------|----------------|--------------|---------------|-----------------|
-| **Software** | `libsvtav1` | `-crf` | 35 | `-preset 6` |
-| **VideoToolbox** | `av1_videotoolbox` | `-b:v` | 25% of source bitrate | `-allow_sw 1` |
-| **NVENC** | `av1_nvenc` | `-cq` | 32 | `-preset p4 -tune hq -rc vbr` |
-| **Quick Sync** | `av1_qsv` | `-global_quality` | 32 | `-preset medium` |
-| **VAAPI** | `av1_vaapi` | `-qp` | 32 | — |
-
-> **Note:** VideoToolbox uses dynamic bitrate calculation instead of CRF. Target bitrate is calculated as a percentage of source bitrate, clamped between 500 kbps and 15,000 kbps.
-
-### Hardware Decoding
-
-When hardware encoding is active, Shrinkray enables hardware decoding for a full GPU pipeline:
-
-| Platform | Input Args |
-|----------|------------|
-| **VideoToolbox** | `-hwaccel videotoolbox` |
-| **NVENC** | `-hwaccel cuda -hwaccel_output_format cuda` |
-| **Quick Sync** | `-hwaccel qsv -hwaccel_output_format qsv` |
-| **VAAPI** | `-vaapi_device /dev/dri/renderD128 -hwaccel vaapi -hwaccel_output_format vaapi` |
-
-### Scaling Filters (1080p/720p Presets)
-
-| Platform | Scale Filter |
-|----------|--------------|
-| **Software** | `scale=-2:'min(ih,1080)'` |
-| **NVENC** | `scale_cuda=-2:'min(ih,1080)'` |
-| **Quick Sync** | `scale_qsv=-2:'min(ih,1080)'` |
-| **VAAPI** | `scale_vaapi=w=-2:h='min(ih,1080)'` |
-| **VideoToolbox** | `scale=-2:'min(ih,1080)'` (CPU) |
-
 ---
 
 ## Hardware Acceleration
@@ -264,38 +217,10 @@ go test ./...
 
 ---
 
-## FAQ
+## More Documentation
 
-### Why is CPU usage 10–40% with hardware encoding?
-
-This is normal. The GPU handles video encoding/decoding, but the CPU still handles:
-- Demuxing (parsing input container)
-- Muxing (writing output container)
-- Audio/subtitle stream copying
-- FFmpeg process overhead
-
-### Why did Shrinkray skip some files?
-
-Files are automatically skipped if:
-- Already encoded in the target codec (HEVC/AV1)
-- Already at or below the target resolution (1080p/720p presets)
-
-
-### What happens if the transcoded file is larger?
-
-Shrinkray rejects files where the output is larger than the original. The original file is kept unchanged.
-
-### Are subtitles preserved?
-
-Yes. All subtitle streams are copied to the output file unchanged (`-c:s copy`).
-
-### Are multiple audio tracks preserved?
-
-Yes. All audio streams are copied to the output file unchanged (`-c:a copy`). If your source has multiple audio tracks (different languages, commentary, etc.), they will all be retained.
-
-### What about HDR content?
-
-Hardware encoders generally preserve HDR metadata and 10-bit color depth. Software encoders may require additional configuration for HDR preservation.
+- [FAQ](docs/faq.md) — Common questions about CPU usage, skipped files, HDR, and more
+- [FFmpeg Options Reference](docs/ffmpeg-options.md) — Detailed encoder settings and quality flags
 
 ---
 
