@@ -2,11 +2,13 @@
 
 ### Why is CPU usage 10–40% with hardware encoding?
 
-This is normal. The GPU handles video encoding/decoding, but the CPU still handles:
+This is normal. Your GPU handles video encoding and decoding (when it supports the source format), but the CPU still handles:
 - Demuxing (parsing input container)
 - Muxing (writing output container)
 - Audio/subtitle stream copying
 - FFmpeg process overhead
+
+If you see higher CPU usage, your GPU may not support the source format and FFmpeg is falling back to software decoding. The GPU still handles encoding in this case.
 
 ### Why did Shrinkray skip some files?
 
