@@ -294,7 +294,7 @@ func (b *Browser) GetVideoFilesWithProgress(ctx context.Context, paths []string,
 		}
 
 		if info.IsDir() {
-			filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, err error) error {
+			_ = filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, err error) error {
 				if err != nil || info.IsDir() {
 					return nil
 				}

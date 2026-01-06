@@ -92,7 +92,7 @@ func (h *Handler) checkAndSendNotification(w http.ResponseWriter, flusher http.F
 	// Notification sent successfully, disable the checkbox
 	h.cfg.NotifyOnComplete = false
 	if h.cfgPath != "" {
-		h.cfg.Save(h.cfgPath)
+		_ = h.cfg.Save(h.cfgPath)
 	}
 
 	// Broadcast notify_sent event so UI can update the checkbox

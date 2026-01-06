@@ -303,7 +303,7 @@ func (w *Worker) processJob(job *Job) {
 	// Get the preset
 	preset := ffmpeg.GetPreset(job.PresetID)
 	if preset == nil {
-		w.queue.FailJob(job.ID, fmt.Sprintf("unknown preset: %s", job.PresetID))
+		_ = w.queue.FailJob(job.ID, fmt.Sprintf("unknown preset: %s", job.PresetID))
 		return
 	}
 
@@ -337,13 +337,13 @@ func (w *Worker) processJob(job *Job) {
 		if jobCtx.Err() == context.Canceled {
 			// Clean up temp file
 			os.Remove(tempPath)
-			w.queue.CancelJob(job.ID)
+			_ = w.queue.CancelJob(job.ID)
 			return
 		}
 
 		// Clean up temp file on failure
 		os.Remove(tempPath)
-		w.queue.FailJob(job.ID, err.Error())
+		_ = w.queue.FailJob(job.ID, err.Error())
 		return
 	}
 
@@ -351,7 +351,7 @@ func (w *Worker) processJob(job *Job) {
 	if result.OutputSize >= job.InputSize {
 		// Delete the temp file and fail the job
 		os.Remove(tempPath)
-		w.queue.FailJob(job.ID, fmt.Sprintf("Transcoded file (%s) is larger than original (%s). File skipped.",
+		_ = w.queue.FailJob(job.ID, fmt.Sprintf("Transcoded file (%s) is larger than original (%s). File skipped.",
 			formatBytes(result.OutputSize), formatBytes(job.InputSize)))
 		return
 	}
@@ -362,7 +362,7 @@ func (w *Worker) processJob(job *Job) {
 	if err != nil {
 		// Try to clean up
 		os.Remove(tempPath)
-		w.queue.FailJob(job.ID, fmt.Sprintf("failed to finalize: %v", err))
+		_ = w.queue.FailJob(job.ID, fmt.Sprintf("failed to finalize: %v", err))
 		return
 	}
 
@@ -374,7 +374,7 @@ func (w *Worker) processJob(job *Job) {
 	}
 
 	// Mark job complete
-	w.queue.CompleteJob(job.ID, finalPath, result.OutputSize)
+	_ = w.queue.CompleteJob(job.ID, finalPath, result.OutputSize)
 }
 
 // CancelCurrentJob cancels the job if it matches the given ID

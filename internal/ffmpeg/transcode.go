@@ -248,8 +248,8 @@ func FinalizeTranscode(inputPath, tempPath string, replace bool) (finalPath stri
 	}
 
 	if err := copyFile(tempPath, finalPath); err != nil {
-		// Try to restore original
-		os.Rename(oldPath, inputPath)
+		// Try to restore original (best effort)
+		_ = os.Rename(oldPath, inputPath)
 		return "", fmt.Errorf("failed to copy temp to final location: %w", err)
 	}
 

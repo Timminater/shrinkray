@@ -148,7 +148,7 @@ func (h *Handler) CreateJobs(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add jobs to queue - SSE will notify frontend of new jobs
-		h.queue.AddMultiple(probes, req.PresetID)
+		_, _ = h.queue.AddMultiple(probes, req.PresetID)
 	}()
 }
 

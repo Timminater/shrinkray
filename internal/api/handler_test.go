@@ -296,9 +296,3 @@ func TestJobStreamEndpoint(t *testing.T) {
 	t.Logf("SSE response: %s", w.Body.String()[:min(200, len(w.Body.String()))])
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

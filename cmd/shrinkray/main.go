@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	shrinkray "github.com/gwlsn/shrinkray"
 	"github.com/gwlsn/shrinkray/internal/api"
@@ -140,7 +141,6 @@ func main() {
 
 	// Start worker pool
 	workerPool.Start()
-	defer workerPool.Stop()
 
 	fmt.Printf("  Starting server on port %d\n", *port)
 	fmt.Println()
@@ -149,8 +149,9 @@ func main() {
 
 	// Set up graceful shutdown
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", *port),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%d", *port),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Handle shutdown signals
@@ -166,7 +167,9 @@ func main() {
 
 	// Start server
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("Server error: %v", err)
+		fmt.Printf("Server error: %v\n", err)
+		workerPool.Stop()
+		os.Exit(1)
 	}
 
 	fmt.Println("  Goodbye!")
