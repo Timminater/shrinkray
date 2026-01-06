@@ -163,6 +163,7 @@ Configuration is stored in `/config/shrinkray.yaml`. Most settings are available
 | `schedule_end_hour` | `6` | Hour transcoding must stop (0–23) |
 | `pushover_user_key` | *(empty)* | Pushover user key for notifications |
 | `pushover_app_token` | *(empty)* | Pushover app token for notifications |
+| `log_level` | `info` | Logging verbosity: `debug`, `info`, `warn`, `error` |
 
 ### Example Configuration
 
@@ -175,6 +176,7 @@ quality_hevc: 24
 schedule_enabled: true
 schedule_start_hour: 22
 schedule_end_hour: 6
+log_level: info  # Use "debug" for troubleshooting
 ```
 
 ---
