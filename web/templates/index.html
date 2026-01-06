@@ -1786,6 +1786,7 @@
         async function startJobs() {
             if (selectedPaths.size === 0) return;
 
+            const banner = document.getElementById('processing-banner');
             try {
                 const preset = document.getElementById('preset-select').value;
                 // Sum up total files: for folders use their file_count, for files use 1
@@ -1793,6 +1794,12 @@
                 for (const count of selectedFileCounts.values()) {
                     totalFiles += count;
                 }
+
+                // Show processing indicator BEFORE fetch to avoid race condition
+                // (backend may send jobs_added SSE before fetch returns)
+                document.getElementById('processing-text').textContent =
+                    `Processing ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`;
+                banner.classList.remove('hidden');
 
                 const resp = await fetch('/api/jobs', {
                     method: 'POST',
@@ -1806,15 +1813,10 @@
 
                 // Check for validation errors (bad request)
                 if (data.error) {
+                    banner.classList.add('hidden');
                     alert(data.error);
                     return;
                 }
-
-                // Show processing indicator for async job creation
-                const banner = document.getElementById('processing-banner');
-                document.getElementById('processing-text').textContent =
-                    `Processing ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`;
-                banner.classList.remove('hidden');
 
                 // Clear selections immediately - jobs will appear via SSE as they're processed
                 selectedPaths.clear();
@@ -1834,6 +1836,7 @@
                 }
 
             } catch (err) {
+                banner.classList.add('hidden');
                 console.error('Start jobs error:', err);
             }
         }

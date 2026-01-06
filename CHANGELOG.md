@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.7] - 2026-01-06
+
+### Fixed
+- "Processing files..." banner no longer persists after single-file jobs start
+
 ## [1.3.6] - 2026-01-05
 
 ### Fixed
