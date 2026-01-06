@@ -66,8 +66,9 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		qualityFlag: "-global_quality",
 		quality:     "27",
 		extraArgs:   []string{"-preset", "medium"},
-		hwaccelArgs: []string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
+		hwaccelArgs: []string{"-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
 		scaleFilter: "scale_qsv",
+		baseFilter:  "format=nv12|qsv,hwupload=extra_hw_frames=64", // Handle software decode fallback
 	},
 	{HWAccelVAAPI, CodecHEVC}: {
 		encoder:     "hevc_vaapi",
@@ -76,7 +77,7 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		extraArgs:   []string{},
 		hwaccelArgs: []string{"-vaapi_device", "", "-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}, // Device path filled dynamically
 		scaleFilter: "scale_vaapi",
-		baseFilter:  "format=nv12,hwupload", // Required for AMD GPUs when hw decode falls back to software
+		baseFilter:  "format=nv12|vaapi,hwupload", // nv12 for sw decode fallback, vaapi passthrough for hw decode
 	},
 
 	// AV1 encoders
@@ -111,8 +112,9 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		qualityFlag: "-global_quality",
 		quality:     "32",
 		extraArgs:   []string{"-preset", "medium"},
-		hwaccelArgs: []string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
+		hwaccelArgs: []string{"-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
 		scaleFilter: "scale_qsv",
+		baseFilter:  "format=nv12|qsv,hwupload=extra_hw_frames=64", // Handle software decode fallback
 	},
 	{HWAccelVAAPI, CodecAV1}: {
 		encoder:     "av1_vaapi",
@@ -121,7 +123,7 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		extraArgs:   []string{},
 		hwaccelArgs: []string{"-vaapi_device", "", "-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}, // Device path filled dynamically
 		scaleFilter: "scale_vaapi",
-		baseFilter:  "format=nv12,hwupload", // Required for AMD GPUs when hw decode falls back to software
+		baseFilter:  "format=nv12|vaapi,hwupload", // nv12 for sw decode fallback, vaapi passthrough for hw decode
 	},
 }
 
