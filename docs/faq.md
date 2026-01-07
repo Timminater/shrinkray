@@ -18,7 +18,9 @@ Files are automatically skipped if:
 
 ### What happens if the transcoded file is larger?
 
-Shrinkray rejects files where the output is larger than the original. The original file is kept unchanged.
+By default, Shrinkray rejects files where the output is larger than the original. The original file is kept unchanged.
+
+If you want to keep larger files anyway (e.g., for codec consistency across your library), set `keep_larger_files: true` in your config.
 
 ### Are subtitles preserved?
 

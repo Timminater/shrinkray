@@ -164,6 +164,7 @@ Configuration is stored in `/config/shrinkray.yaml`. Most settings are available
 | `pushover_user_key` | *(empty)* | Pushover user key for notifications |
 | `pushover_app_token` | *(empty)* | Pushover app token for notifications |
 | `log_level` | `info` | Logging verbosity: `debug`, `info`, `warn`, `error` |
+| `keep_larger_files` | `false` | Keep transcoded files even if larger than original |
 
 ### Example Configuration
 

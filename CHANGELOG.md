@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.4] - 2026-01-07
+
+### Added
+- `keep_larger_files` config option to keep transcoded files even if larger than original
+  - Useful for users who want codec consistency across their library
+
 ## [1.4.3] - 2026-01-07
 
 ### Added

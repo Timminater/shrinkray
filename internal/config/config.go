@@ -58,6 +58,10 @@ type Config struct {
 
 	// LogLevel controls logging verbosity: debug, info, warn, error (default: info)
 	LogLevel string `yaml:"log_level"`
+
+	// KeepLargerFiles keeps transcoded files even if they're larger than the original
+	// Useful for users who want codec consistency across their library
+	KeepLargerFiles bool `yaml:"keep_larger_files"`
 }
 
 // DefaultConfig returns a config with sensible defaults
