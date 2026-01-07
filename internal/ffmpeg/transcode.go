@@ -167,10 +167,20 @@ func (t *Transcoder) Transcode(
 							currentProgress.Percent = 100
 						}
 
-						// Calculate ETA based on speed (only available with time-based progress)
+						// Calculate ETA - use FFmpeg speed if available, otherwise calculate from frames
 						if currentProgress.Speed > 0 && duration > 0 {
+							// Time-based ETA (FFmpeg provided speed)
 							remaining := duration - currentProgress.Time
 							currentProgress.ETA = time.Duration(float64(remaining) / currentProgress.Speed)
+						} else if currentProgress.Frame > 0 && totalFrames > 0 {
+							// Frame-based fallback for speed and ETA (VAAPI reports N/A for time/speed)
+							elapsed := time.Since(startTime)
+							framesRemaining := totalFrames - currentProgress.Frame
+							// Calculate speed as video time encoded divided by wall time
+							videoTimeEncoded := time.Duration(float64(duration) * float64(currentProgress.Frame) / float64(totalFrames))
+							currentProgress.Speed = float64(videoTimeEncoded) / float64(elapsed)
+							// Calculate ETA based on elapsed time and remaining frames
+							currentProgress.ETA = time.Duration(float64(elapsed) * float64(framesRemaining) / float64(currentProgress.Frame))
 						}
 
 						// Log progress values for debugging

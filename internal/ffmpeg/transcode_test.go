@@ -271,3 +271,32 @@ func TestFinalizeTranscodeKeep(t *testing.T) {
 
 	t.Logf("Keep mode: original→%s, final=%s", oldPath, finalPath)
 }
+
+func TestFrameBasedSpeedAndETA(t *testing.T) {
+	// Simulate: 1000 frame video, 100 seconds duration
+	// After 10 seconds wall time, 200 frames encoded (20%)
+	totalFrames := int64(1000)
+	duration := 100 * time.Second
+	currentFrame := int64(200)
+	elapsedWallTime := 10 * time.Second
+
+	// Expected:
+	// - Video time encoded = 100s * (200/1000) = 20s
+	// - Speed = 20s / 10s = 2.0x (encoding 2x realtime)
+	// - Frames remaining = 800
+	// - ETA = 10s * (800/200) = 40s
+
+	videoTimeEncoded := time.Duration(float64(duration) * float64(currentFrame) / float64(totalFrames))
+	speed := float64(videoTimeEncoded) / float64(elapsedWallTime)
+	framesRemaining := totalFrames - currentFrame
+	eta := time.Duration(float64(elapsedWallTime) * float64(framesRemaining) / float64(currentFrame))
+
+	if speed < 1.99 || speed > 2.01 {
+		t.Errorf("expected speed ~2.0x, got %.2fx", speed)
+	}
+	if eta < 39*time.Second || eta > 41*time.Second {
+		t.Errorf("expected ETA ~40s, got %v", eta)
+	}
+
+	t.Logf("Frame-based calculation: speed=%.2fx, eta=%v", speed, eta)
+}

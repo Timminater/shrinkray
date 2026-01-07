@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.6] - 2026-01-07
+
+### Fixed
+- Speed and ETA now display correctly during VAAPI hardware encodes (#29)
+  - When FFmpeg reports N/A for time/speed, calculate from frame count and elapsed time
+
 ## [1.4.5] - 2026-01-07
 
 ### Fixed
