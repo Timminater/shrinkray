@@ -251,6 +251,13 @@ func FinalizeTranscode(inputPath, tempPath string, replace bool) (finalPath stri
 	name := strings.TrimSuffix(base, ext)
 	finalPath = filepath.Join(dir, name+".mkv")
 
+	// Capture original modification time to preserve it on the output file
+	inputInfo, err := os.Stat(inputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat input file: %w", err)
+	}
+	originalModTime := inputInfo.ModTime()
+
 	if replace {
 		// Replace mode: delete original, copy temp to final location
 		if err := os.Remove(inputPath); err != nil {
@@ -260,6 +267,9 @@ func FinalizeTranscode(inputPath, tempPath string, replace bool) (finalPath stri
 		if err := copyFile(tempPath, finalPath); err != nil {
 			return "", fmt.Errorf("failed to copy temp to final location: %w", err)
 		}
+
+		// Preserve original modification time
+		_ = os.Chtimes(finalPath, originalModTime, originalModTime)
 
 		os.Remove(tempPath)
 		return finalPath, nil
@@ -276,6 +286,9 @@ func FinalizeTranscode(inputPath, tempPath string, replace bool) (finalPath stri
 		_ = os.Rename(oldPath, inputPath)
 		return "", fmt.Errorf("failed to copy temp to final location: %w", err)
 	}
+
+	// Preserve original modification time
+	_ = os.Chtimes(finalPath, originalModTime, originalModTime)
 
 	os.Remove(tempPath)
 	return finalPath, nil

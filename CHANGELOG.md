@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] - 2026-01-07
+
+### Added
+- Preserve original file modification time after transcoding (#33)
+  - Fixes compatibility with Unraid Mover Tuning and similar tools that use mtime for file age
+
 ## [1.4.2] - 2026-01-07
 
 ### Fixed
