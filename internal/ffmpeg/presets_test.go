@@ -223,3 +223,43 @@ func TestGetEncoderDefaults(t *testing.T) {
 		}
 	}
 }
+
+func TestQSVPresetFilterChain(t *testing.T) {
+	// Test that QSV presets have the correct filter chain for software decode fallback
+	// The filter chain must use "format=nv12|qsv" to accept either CPU or GPU frames
+	tests := []struct {
+		name  string
+		codec Codec
+	}{
+		{"QSV HEVC", CodecHEVC},
+		{"QSV AV1", CodecAV1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &Preset{
+				ID:      "test",
+				Encoder: HWAccelQSV,
+				Codec:   tt.codec,
+			}
+
+			_, outputArgs := BuildPresetArgs(preset, 1000000, 1920, 1080, 0, 0)
+
+			// Find -vf argument
+			for i, arg := range outputArgs {
+				if arg == "-vf" && i+1 < len(outputArgs) {
+					filter := outputArgs[i+1]
+					if !strings.Contains(filter, "format=nv12|qsv") {
+						t.Errorf("QSV preset missing 'format=nv12|qsv' in filter chain, got: %s", filter)
+					}
+					if !strings.Contains(filter, "hwupload=extra_hw_frames=64") {
+						t.Errorf("QSV preset missing 'hwupload=extra_hw_frames=64' in filter chain, got: %s", filter)
+					}
+					t.Logf("Filter chain: %s", filter)
+					return
+				}
+			}
+			t.Error("QSV preset missing -vf argument")
+		})
+	}
+}

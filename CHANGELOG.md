@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.9] - 2026-01-08
+
+### Fixed
+- Fix QSV encoding failures when hardware decode falls back to software (#32, #38)
+  - Changed filter chain to `format=nv12|qsv,hwupload=extra_hw_frames=64`
+  - The pipe syntax accepts either CPU frames (nv12) or GPU frames (qsv) without forced conversion
+  - HW decode path: zero-copy passthrough (no performance impact)
+  - SW decode path: frames uploaded to GPU via hwupload
+  - Matches the pattern used by Jellyfin and our working VAAPI implementation
+
 ## [1.4.8] - 2026-01-08
 
 ### Fixed
@@ -13,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Now uses `hwupload=extra_hw_frames=64` like Jellyfin does
   - Added `-init_hw_device qsv=qsv -filter_hw_device qsv` for proper device initialization
   - VC1 and other codecs that QSV can't hardware decode now transcode correctly
+  - Note: This fix was incomplete - see 1.4.9
 
 ## [1.4.7] - 2026-01-08
 

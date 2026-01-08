@@ -69,7 +69,7 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		extraArgs:   []string{"-preset", "medium"},
 		hwaccelArgs: []string{"-init_hw_device", "qsv=qsv", "-filter_hw_device", "qsv", "-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
 		scaleFilter: "vpp_qsv",
-		baseFilter:  "format=nv12,hwupload=extra_hw_frames=64", // upload CPU frames to QSV for sw decode fallback
+		baseFilter:  "format=nv12|qsv,hwupload=extra_hw_frames=64", // nv12 for sw decode fallback, qsv passthrough for hw decode
 	},
 	{HWAccelVAAPI, CodecHEVC}: {
 		encoder:     "hevc_vaapi",
@@ -116,7 +116,7 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		extraArgs:   []string{"-preset", "medium"},
 		hwaccelArgs: []string{"-init_hw_device", "qsv=qsv", "-filter_hw_device", "qsv", "-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
 		scaleFilter: "vpp_qsv",
-		baseFilter:  "format=nv12,hwupload=extra_hw_frames=64", // upload CPU frames to QSV for sw decode fallback
+		baseFilter:  "format=nv12|qsv,hwupload=extra_hw_frames=64", // nv12 for sw decode fallback, qsv passthrough for hw decode
 	},
 	{HWAccelVAAPI, CodecAV1}: {
 		encoder:     "av1_vaapi",
