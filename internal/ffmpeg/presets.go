@@ -179,8 +179,9 @@ func crfToBitrateModifier(crf int) float64 {
 // sourceBitrate is the source video bitrate in bits/second (used for dynamic bitrate calculation)
 // sourceWidth/sourceHeight are the source video dimensions (for calculating scaled output)
 // qualityHEVC/qualityAV1 are optional CRF overrides (0 = use default)
+// softwareDecode: if true, skip hardware decode args and use software decode filter
 // Returns (inputArgs, outputArgs) - inputArgs go before -i, outputArgs go after
-func BuildPresetArgs(preset *Preset, sourceBitrate int64, sourceWidth, sourceHeight int, qualityHEVC, qualityAV1 int) (inputArgs []string, outputArgs []string) {
+func BuildPresetArgs(preset *Preset, sourceBitrate int64, sourceWidth, sourceHeight int, qualityHEVC, qualityAV1 int, softwareDecode bool) (inputArgs []string, outputArgs []string) {
 	key := EncoderKey{preset.Encoder, preset.Codec}
 	config, ok := encoderConfigs[key]
 	if !ok {
@@ -189,8 +190,18 @@ func BuildPresetArgs(preset *Preset, sourceBitrate int64, sourceWidth, sourceHei
 	}
 
 	// Input args: hardware acceleration for decoding
-	// Make a copy to avoid modifying the original config
+	// When softwareDecode is true, skip -hwaccel and -hwaccel_output_format but keep device init args
+	skipNext := false
 	for _, arg := range config.hwaccelArgs {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		// Skip hardware decode flags when using software decode
+		if softwareDecode && (arg == "-hwaccel" || arg == "-hwaccel_output_format") {
+			skipNext = true // skip the next arg (the value)
+			continue
+		}
 		// Fill in VAAPI device path dynamically
 		if arg == "" && len(inputArgs) > 0 && inputArgs[len(inputArgs)-1] == "-vaapi_device" {
 			arg = GetVAAPIDevice()
@@ -202,9 +213,15 @@ func BuildPresetArgs(preset *Preset, sourceBitrate int64, sourceWidth, sourceHei
 	outputArgs = []string{}
 
 	// Build video filter chain
-	// baseFilter is used for VAAPI to handle software-decoded frames (hwupload)
 	var filterParts []string
-	if config.baseFilter != "" {
+	if softwareDecode {
+		// Use software decode filter for the encoder
+		swFilter := getSoftwareDecodeFilter(preset.Encoder)
+		if swFilter != "" {
+			filterParts = append(filterParts, swFilter)
+		}
+	} else if config.baseFilter != "" {
+		// Use normal hardware decode filter
 		filterParts = append(filterParts, config.baseFilter)
 	}
 
@@ -351,6 +368,20 @@ func getSoftwarePreset(id string) *Preset {
 		}
 	}
 	return nil
+}
+
+// getSoftwareDecodeFilter returns the filter chain for software decode + hardware encode
+func getSoftwareDecodeFilter(encoder HWAccel) string {
+	switch encoder {
+	case HWAccelQSV:
+		return "format=nv12,hwupload=extra_hw_frames=64,vpp_qsv=format=nv12"
+	case HWAccelVAAPI:
+		return "format=nv12,hwupload"
+	case HWAccelNVENC:
+		return "" // NVENC auto-handles CPU frames
+	default:
+		return ""
+	}
 }
 
 // ListPresets returns all available presets

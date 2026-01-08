@@ -8,7 +8,7 @@ This is normal. Your GPU handles video encoding and decoding (when it supports t
 - Audio/subtitle stream copying
 - FFmpeg process overhead
 
-If you see higher CPU usage, your GPU may not support the source format and FFmpeg is falling back to software decoding. The GPU still handles encoding in this case.
+If you see higher CPU usage, your GPU may not support the source codec and Shrinkray has automatically fallen back to software decoding. The GPU still handles encoding—only decoding moves to CPU. This happens automatically and transparently.
 
 ### Why did Shrinkray skip some files?
 
@@ -32,7 +32,7 @@ Yes. All audio streams are copied to the output file unchanged (`-c:a copy`). If
 
 ### What about HDR content?
 
-Hardware encoders preserve HDR metadata and 10-bit color depth when your GPU supports the source format. If your GPU can't decode a particular format and falls back to software decoding, 10-bit HDR may be converted to 8-bit SDR. This is a hardware limitation, not a Shrinkray limitation.
+Hardware encoders preserve HDR metadata and 10-bit color depth when your GPU supports the source codec. If your GPU can't hardware decode the source (e.g., AV1 on older Intel, or exotic codecs), Shrinkray automatically retries with software decoding. In this fallback path, 10-bit HDR may be converted to 8-bit SDR due to the CPU-to-GPU frame upload. This is a limitation of mixed software decode + hardware encode pipelines, not Shrinkray specifically.
 
 ### How does Shrinkray compare to Tdarr/Unmanic?
 

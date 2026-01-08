@@ -38,6 +38,21 @@ type TranscodeResult struct {
 	Duration    time.Duration `json:"duration"` // How long the transcode took
 }
 
+// TranscodeError represents a transcode failure with additional context for retry decisions
+type TranscodeError struct {
+	Err    error
+	Stderr string // Full stderr output for retry detection
+	Frames int64  // Frames processed before failure (0 = likely decode failure)
+}
+
+func (e *TranscodeError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *TranscodeError) Unwrap() error {
+	return e.Err
+}
+
 // Transcoder wraps ffmpeg transcoding functionality
 type Transcoder struct {
 	ffmpegPath string
@@ -54,6 +69,7 @@ func NewTranscoder(ffmpegPath string) *Transcoder {
 // sourceWidth/sourceHeight are source dimensions (for calculating scaled output)
 // qualityHEVC/qualityAV1 are CRF values to use (0 = use preset defaults)
 // totalFrames is the expected total frame count (for progress fallback when time-based stats unavailable)
+// softwareDecode: if true, use software decode with hardware encode (fallback for hw decode failures)
 func (t *Transcoder) Transcode(
 	ctx context.Context,
 	inputPath string,
@@ -65,6 +81,7 @@ func (t *Transcoder) Transcode(
 	qualityHEVC, qualityAV1 int,
 	totalFrames int64,
 	progressCh chan<- Progress,
+	softwareDecode bool,
 ) (*TranscodeResult, error) {
 	startTime := time.Now()
 
@@ -77,7 +94,7 @@ func (t *Transcoder) Transcode(
 
 	// Build preset args with source bitrate for dynamic calculation
 	// inputArgs go before -i (hwaccel), outputArgs go after
-	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, sourceWidth, sourceHeight, qualityHEVC, qualityAV1)
+	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, sourceWidth, sourceHeight, qualityHEVC, qualityAV1, softwareDecode)
 
 	// Build ffmpeg command
 	// Structure: ffmpeg [inputArgs] -i input [outputArgs] output
@@ -112,6 +129,9 @@ func (t *Transcoder) Transcode(
 		return nil, fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
 
+	// Track last frame count for error reporting
+	var lastFrameCount int64
+
 	// Parse progress from stdout
 	go func() {
 		defer close(progressCh)
@@ -128,6 +148,7 @@ func (t *Transcoder) Transcode(
 				switch key {
 				case "frame":
 					currentProgress.Frame, _ = strconv.ParseInt(value, 10, 64)
+					lastFrameCount = currentProgress.Frame
 				case "fps":
 					currentProgress.FPS, _ = strconv.ParseFloat(value, 64)
 				case "total_size":
@@ -205,19 +226,23 @@ func (t *Transcoder) Transcode(
 	if err := cmd.Wait(); err != nil {
 		// Clean up partial output file
 		os.Remove(outputPath)
-		// Log stderr for debugging
+		// Capture full stderr for retry detection
 		stderrOutput := stderr.String()
 		if stderrOutput != "" {
-			// Get last few lines of stderr for the error message
+			// Get last few lines of stderr for logging
 			lines := strings.Split(strings.TrimSpace(stderrOutput), "\n")
 			lastLines := lines
 			if len(lines) > 5 {
 				lastLines = lines[len(lines)-5:]
 			}
 			logger.Error("FFmpeg failed", "error", err, "stderr", strings.Join(lastLines, " | "))
-			return nil, fmt.Errorf("ffmpeg failed: %w", err)
 		}
-		return nil, fmt.Errorf("ffmpeg failed: %w", err)
+		// Return TranscodeError with full stderr and frame count for retry decisions
+		return nil, &TranscodeError{
+			Err:    fmt.Errorf("ffmpeg failed: %w", err),
+			Stderr: stderrOutput,
+			Frames: lastFrameCount,
+		}
 	}
 
 	// Get output file size

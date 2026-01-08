@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -338,23 +339,57 @@ func (w *Worker) processJob(job *Job) {
 	duration := time.Duration(job.Duration) * time.Millisecond
 	// Calculate total frames for frame-based progress fallback (VAAPI reports N/A for time)
 	totalFrames := int64(float64(job.Duration) / 1000.0 * job.FrameRate)
-	result, err := w.transcoder.Transcode(jobCtx, job.InputPath, tempPath, preset, duration, job.Bitrate, job.Width, job.Height, w.cfg.QualityHEVC, w.cfg.QualityAV1, totalFrames, progressCh)
+	result, err := w.transcoder.Transcode(jobCtx, job.InputPath, tempPath, preset, duration, job.Bitrate, job.Width, job.Height, w.cfg.QualityHEVC, w.cfg.QualityAV1, totalFrames, progressCh, false)
 
 	if err != nil {
 		// Check if it was cancelled
 		if jobCtx.Err() == context.Canceled {
-			// Clean up temp file
 			os.Remove(tempPath)
 			logger.Info("Job cancelled", "job_id", job.ID)
 			_ = w.queue.CancelJob(job.ID)
 			return
 		}
 
-		// Clean up temp file on failure
-		os.Remove(tempPath)
-		logger.Error("Job failed", "job_id", job.ID, "error", err.Error())
-		_ = w.queue.FailJob(job.ID, err.Error())
-		return
+		// Check if it's a hardware decode failure that should trigger software decode retry
+		if isHWDecodeFailure(err, preset.Encoder) {
+			logger.Info("Hardware decode failed, retrying with software decode", "job_id", job.ID)
+
+			// Create new progress channel for retry
+			retryProgressCh := make(chan ffmpeg.Progress, 10)
+			go func() {
+				for progress := range retryProgressCh {
+					eta := formatDuration(progress.ETA)
+					w.queue.UpdateProgress(job.ID, progress.Percent, progress.Speed, eta)
+				}
+			}()
+
+			// Retry with software decode
+			result, err = w.transcoder.Transcode(jobCtx, job.InputPath, tempPath, preset, duration, job.Bitrate, job.Width, job.Height, w.cfg.QualityHEVC, w.cfg.QualityAV1, totalFrames, retryProgressCh, true)
+
+			if err != nil {
+				// Check if cancelled during retry
+				if jobCtx.Err() == context.Canceled {
+					os.Remove(tempPath)
+					logger.Info("Job cancelled during software decode retry", "job_id", job.ID)
+					_ = w.queue.CancelJob(job.ID)
+					return
+				}
+
+				// Retry also failed
+				os.Remove(tempPath)
+				logger.Error("Job failed after software decode retry", "job_id", job.ID, "error", err.Error())
+				_ = w.queue.FailJob(job.ID, err.Error())
+				return
+			}
+
+			logger.Info("Software decode fallback succeeded", "job_id", job.ID)
+		} else {
+			// Not a hardware decode failure, fail normally
+			os.Remove(tempPath)
+			logger.Error("Job failed", "job_id", job.ID, "error", err.Error())
+			_ = w.queue.FailJob(job.ID, err.Error())
+			return
+		}
 	}
 
 	// Check if transcoded file is larger than original
@@ -453,4 +488,67 @@ func formatBytes(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// isHWDecodeFailure checks if the error indicates a hardware decode failure
+// that should trigger a software decode retry
+func isHWDecodeFailure(err error, encoder ffmpeg.HWAccel) bool {
+	transcodeErr, ok := err.(*ffmpeg.TranscodeError)
+	if !ok {
+		return false
+	}
+
+	stderr := transcodeErr.Stderr
+
+	var patterns []string
+	switch encoder {
+	case ffmpeg.HWAccelQSV:
+		patterns = []string{
+			// AV1/HEVC decode init failures
+			"Error initializing the MFX video decoder: unsupported",
+			"Error submitting packet to decoder: Function not implemented",
+			"unsupported (-3)",
+			"0 frames decoded",
+			// H.264/other decode runtime failures
+			"video_get_buffer: image parameters invalid",
+			"get_buffer() failed",
+			"Decoding error:",
+		}
+	case ffmpeg.HWAccelVAAPI:
+		patterns = []string{
+			// VAAPI initialization failures
+			"Failed to initialise VAAPI connection",
+			"Failed to create a VAAPI device",
+			"vaInitialize failed",
+			"Device creation failed",
+			// VAAPI decode context failures
+			"Failed to create VAAPI decode context",
+			"hwaccel initialisation returned error",
+		}
+	case ffmpeg.HWAccelNVENC:
+		patterns = []string{
+			// CUDA device errors
+			"CUDA_ERROR_NO_DEVICE",
+			"CUDA_ERROR_NOT_SUPPORTED",
+			"CUDA_ERROR_LAUNCH_FAILED",
+			"CUDA_ERROR_INVALID_VALUE",
+			"no CUDA-capable device is detected",
+			// CUVID decoder errors
+			"cuvidGetDecoderCaps",
+			"cuvidCreateDecoder",
+			"Failed setup for format cuda",
+			"hwaccel initialisation returned error",
+		}
+	default:
+		// No fallback for software encoder or unknown
+		return false
+	}
+
+	for _, pattern := range patterns {
+		if strings.Contains(stderr, pattern) {
+			return true
+		}
+	}
+
+	return false
 }

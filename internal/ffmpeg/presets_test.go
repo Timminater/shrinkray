@@ -18,7 +18,7 @@ func TestBuildPresetArgsDynamicBitrate(t *testing.T) {
 		Codec:   CodecHEVC,
 	}
 
-	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, 0, 0, 0, 0)
+	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, 0, 0, 0, 0, false)
 
 	// Should have hwaccel input args
 	if len(inputArgs) == 0 {
@@ -59,7 +59,7 @@ func TestBuildPresetArgsDynamicBitrateAV1(t *testing.T) {
 		Codec:   CodecAV1,
 	}
 
-	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, 0, 0, 0, 0)
+	inputArgs, outputArgs := BuildPresetArgs(preset, sourceBitrate, 0, 0, 0, 0, false)
 
 	// Should have hwaccel input args
 	if len(inputArgs) == 0 {
@@ -92,7 +92,7 @@ func TestBuildPresetArgsBitrateConstraints(t *testing.T) {
 		Codec:   CodecHEVC,
 	}
 
-	_, outputArgs := BuildPresetArgs(presetLow, lowBitrate, 0, 0, 0, 0)
+	_, outputArgs := BuildPresetArgs(presetLow, lowBitrate, 0, 0, 0, 0, false)
 	for i, arg := range outputArgs {
 		if arg == "-b:v" && i+1 < len(outputArgs) {
 			bitrate := outputArgs[i+1]
@@ -113,7 +113,7 @@ func TestBuildPresetArgsBitrateConstraints(t *testing.T) {
 		Codec:   CodecHEVC,
 	}
 
-	_, outputArgs = BuildPresetArgs(presetHigh, highBitrate, 0, 0, 0, 0)
+	_, outputArgs = BuildPresetArgs(presetHigh, highBitrate, 0, 0, 0, 0, false)
 	for i, arg := range outputArgs {
 		if arg == "-b:v" && i+1 < len(outputArgs) {
 			bitrate := outputArgs[i+1]
@@ -136,7 +136,7 @@ func TestBuildPresetArgsNonBitrateEncoder(t *testing.T) {
 		Codec:   CodecHEVC,
 	}
 
-	inputArgs, outputArgs := BuildPresetArgs(presetSoftware, sourceBitrate, 0, 0, 0, 0)
+	inputArgs, outputArgs := BuildPresetArgs(presetSoftware, sourceBitrate, 0, 0, 0, 0, false)
 
 	// Software encoder should have no hwaccel input args
 	if len(inputArgs) != 0 {
@@ -177,7 +177,7 @@ func TestBuildPresetArgsZeroBitrate(t *testing.T) {
 		Codec:   CodecHEVC,
 	}
 
-	inputArgs, outputArgs := BuildPresetArgs(presetVT, 0, 0, 0, 0, 0)
+	inputArgs, outputArgs := BuildPresetArgs(presetVT, 0, 0, 0, 0, 0, false)
 
 	// Should still have hwaccel input args
 	if len(inputArgs) == 0 {
@@ -243,7 +243,7 @@ func TestQSVPresetFilterChain(t *testing.T) {
 				Codec:   tt.codec,
 			}
 
-			_, outputArgs := BuildPresetArgs(preset, 1000000, 1920, 1080, 0, 0)
+			_, outputArgs := BuildPresetArgs(preset, 1000000, 1920, 1080, 0, 0, false)
 
 			// Find -vf argument
 			for i, arg := range outputArgs {
@@ -261,5 +261,72 @@ func TestQSVPresetFilterChain(t *testing.T) {
 			}
 			t.Error("QSV preset missing -vf argument")
 		})
+	}
+}
+
+func TestBuildPresetArgsSoftwareDecode(t *testing.T) {
+	// Test that softwareDecode=true strips hwaccel args and uses correct filter
+	preset := &Preset{
+		ID:      "test",
+		Encoder: HWAccelQSV,
+		Codec:   CodecHEVC,
+	}
+
+	// Hardware decode (softwareDecode=false)
+	inputArgsHW, _ := BuildPresetArgs(preset, 1000000, 1920, 1080, 0, 0, false)
+
+	// Software decode (softwareDecode=true)
+	inputArgsSW, outputArgsSW := BuildPresetArgs(preset, 1000000, 1920, 1080, 0, 0, true)
+
+	// Hardware decode should have -hwaccel
+	hasHwaccelHW := false
+	for _, arg := range inputArgsHW {
+		if arg == "-hwaccel" {
+			hasHwaccelHW = true
+			break
+		}
+	}
+	if !hasHwaccelHW {
+		t.Error("Hardware decode args should contain -hwaccel")
+	}
+
+	// Software decode should NOT have -hwaccel
+	hasHwaccelSW := false
+	for _, arg := range inputArgsSW {
+		if arg == "-hwaccel" {
+			hasHwaccelSW = true
+			break
+		}
+	}
+	if hasHwaccelSW {
+		t.Error("Software decode args should NOT contain -hwaccel")
+	}
+
+	// Software decode should still have device init args
+	hasInitDevice := false
+	for _, arg := range inputArgsSW {
+		if arg == "-init_hw_device" {
+			hasInitDevice = true
+			break
+		}
+	}
+	if !hasInitDevice {
+		t.Error("Software decode args should still contain -init_hw_device")
+	}
+
+	// Software decode output should have the software decode filter
+	hasVF := false
+	for i, arg := range outputArgsSW {
+		if arg == "-vf" && i+1 < len(outputArgsSW) {
+			filter := outputArgsSW[i+1]
+			// QSV software decode filter should have hwupload and vpp_qsv
+			if strings.Contains(filter, "hwupload") && strings.Contains(filter, "vpp_qsv") {
+				hasVF = true
+			}
+			break
+		}
+	}
+	if !hasVF {
+		t.Error("Software decode output args should have software decode filter with hwupload and vpp_qsv")
 	}
 }

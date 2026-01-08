@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.10] - 2026-01-08
+
+### Fixed
+- All hardware encoders (QSV, VAAPI, NVENC) now automatically retry with software decode when hardware decode fails (#38, #32)
+  - Fixes AV1 files on pre-11th gen Intel which can't hardware decode AV1
+  - Fixes VC1, MPEG4-ASP, and other codecs that hardware decoders don't support
+  - First attempt uses full hardware acceleration
+  - If decode fails, automatically retries with software decode + hardware encode
+  - Users with capable hardware still get full HW acceleration
+  - Fallback is transparent—no user intervention required
+
 ## [1.4.9] - 2026-01-08
 
 ### Fixed
