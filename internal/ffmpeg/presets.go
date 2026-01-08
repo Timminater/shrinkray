@@ -67,7 +67,8 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		quality:     "27",
 		extraArgs:   []string{"-preset", "medium"},
 		hwaccelArgs: []string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
-		scaleFilter: "vpp_qsv", // vpp_qsv handles both hw and sw decoded frames
+		scaleFilter: "vpp_qsv",
+		baseFilter:  "vpp_qsv", // handles sw decode fallback (uploads CPU frames to QSV)
 	},
 	{HWAccelVAAPI, CodecHEVC}: {
 		encoder:     "hevc_vaapi",
@@ -112,7 +113,8 @@ var encoderConfigs = map[EncoderKey]encoderSettings{
 		quality:     "32",
 		extraArgs:   []string{"-preset", "medium"},
 		hwaccelArgs: []string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"},
-		scaleFilter: "vpp_qsv", // vpp_qsv handles both hw and sw decoded frames
+		scaleFilter: "vpp_qsv",
+		baseFilter:  "vpp_qsv", // handles sw decode fallback (uploads CPU frames to QSV)
 	},
 	{HWAccelVAAPI, CodecAV1}: {
 		encoder:     "av1_vaapi",

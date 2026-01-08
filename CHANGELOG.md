@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.7] - 2026-01-08
+
+### Fixed
+- QSV encoding now works for compress presets when hardware decode falls back to software (#38)
+  - Added `vpp_qsv` base filter to handle CPU-to-QSV frame upload
+  - Previously only worked for downscale presets (1080p/720p)
+
 ## [1.4.6] - 2026-01-07
 
 ### Fixed
