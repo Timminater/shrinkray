@@ -9,6 +9,7 @@ import (
 
 	"github.com/gwlsn/shrinkray/internal/config"
 	"github.com/gwlsn/shrinkray/internal/ffmpeg"
+	"github.com/gwlsn/shrinkray/internal/util"
 )
 
 func TestFormatDuration(t *testing.T) {
@@ -24,9 +25,9 @@ func TestFormatDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := formatDuration(tt.input)
+		result := util.FormatDuration(tt.input)
 		if result != tt.expected {
-			t.Errorf("formatDuration(%v) = %s, expected %s", tt.input, result, tt.expected)
+			t.Errorf("FormatDuration(%v) = %s, expected %s", tt.input, result, tt.expected)
 		}
 	}
 }

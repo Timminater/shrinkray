@@ -132,7 +132,7 @@ func TestBrowserSecurity(t *testing.T) {
 	}
 }
 
-func TestGetVideoFiles(t *testing.T) {
+func TestGetVideoFilesWithProgress(t *testing.T) {
 	// Use the real test file
 	testFile := filepath.Join("..", "..", "testdata", "test_x264.mkv")
 	absPath, err := filepath.Abs(testFile)
@@ -152,14 +152,22 @@ func TestGetVideoFiles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Get video files from testdata
-	results, err := browser.GetVideoFiles(ctx, []string{testDataDir})
+	// Get video files from testdata with progress callback
+	var progressCalls int
+	results, err := browser.GetVideoFilesWithProgress(ctx, []string{testDataDir}, func(probed, total int) {
+		progressCalls++
+		t.Logf("Progress: %d/%d", probed, total)
+	})
 	if err != nil {
-		t.Fatalf("GetVideoFiles failed: %v", err)
+		t.Fatalf("GetVideoFilesWithProgress failed: %v", err)
 	}
 
 	if len(results) == 0 {
 		t.Error("expected at least one video file")
+	}
+
+	if progressCalls == 0 {
+		t.Error("expected progress callback to be called")
 	}
 
 	for _, r := range results {
@@ -187,12 +195,12 @@ func TestCaching(t *testing.T) {
 
 	// First probe - should be slow
 	start := time.Now()
-	results1, _ := browser.GetVideoFiles(ctx, []string{absPath})
+	results1, _ := browser.GetVideoFilesWithProgress(ctx, []string{absPath}, nil)
 	firstDuration := time.Since(start)
 
 	// Second probe - should be cached and fast
 	start = time.Now()
-	results2, _ := browser.GetVideoFiles(ctx, []string{absPath})
+	results2, _ := browser.GetVideoFilesWithProgress(ctx, []string{absPath}, nil)
 	secondDuration := time.Since(start)
 
 	if len(results1) != len(results2) {
@@ -210,7 +218,7 @@ func TestCaching(t *testing.T) {
 	browser.ClearCache()
 
 	start = time.Now()
-	browser.GetVideoFiles(ctx, []string{absPath})
+	browser.GetVideoFilesWithProgress(ctx, []string{absPath}, nil)
 	thirdDuration := time.Since(start)
 
 	t.Logf("Third probe (after cache clear): %v", thirdDuration)

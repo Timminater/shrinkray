@@ -6,15 +6,14 @@ import (
 	"net/http"
 )
 
-// NewRouter creates a new HTTP router with all API endpoints
-func NewRouter(h *Handler, staticFS embed.FS) *http.ServeMux {
-	mux := http.NewServeMux()
-
-	// API routes
+// registerAPIRoutes registers all API endpoints on the given mux
+func registerAPIRoutes(mux *http.ServeMux, h *Handler) {
+	// Browse and presets
 	mux.HandleFunc("GET /api/browse", h.Browse)
 	mux.HandleFunc("GET /api/presets", h.Presets)
 	mux.HandleFunc("GET /api/encoders", h.Encoders)
 
+	// Job management
 	mux.HandleFunc("GET /api/jobs", h.ListJobs)
 	mux.HandleFunc("POST /api/jobs", h.CreateJobs)
 	mux.HandleFunc("GET /api/jobs/stream", h.JobStream)
@@ -23,12 +22,22 @@ func NewRouter(h *Handler, staticFS embed.FS) *http.ServeMux {
 	mux.HandleFunc("DELETE /api/jobs/{id}", h.CancelJob)
 	mux.HandleFunc("POST /api/jobs/{id}/retry", h.RetryJob)
 
+	// Configuration
 	mux.HandleFunc("GET /api/config", h.GetConfig)
 	mux.HandleFunc("PUT /api/config", h.UpdateConfig)
 
+	// Misc
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/cache/clear", h.ClearCache)
 	mux.HandleFunc("POST /api/pushover/test", h.TestPushover)
+}
+
+// NewRouter creates a new HTTP router with all API endpoints
+func NewRouter(h *Handler, staticFS embed.FS) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	// Register all API routes
+	registerAPIRoutes(mux, h)
 
 	// Serve static files from web/templates
 	staticSubFS, err := fs.Sub(staticFS, "web/templates")
@@ -77,33 +86,6 @@ func NewRouter(h *Handler, staticFS embed.FS) *http.ServeMux {
 			w.Write(content)
 		})
 	}
-
-	return mux
-}
-
-// NewRouterWithoutStatic creates a router without static file serving (for testing)
-func NewRouterWithoutStatic(h *Handler) *http.ServeMux {
-	mux := http.NewServeMux()
-
-	// API routes
-	mux.HandleFunc("GET /api/browse", h.Browse)
-	mux.HandleFunc("GET /api/presets", h.Presets)
-	mux.HandleFunc("GET /api/encoders", h.Encoders)
-
-	mux.HandleFunc("GET /api/jobs", h.ListJobs)
-	mux.HandleFunc("POST /api/jobs", h.CreateJobs)
-	mux.HandleFunc("GET /api/jobs/stream", h.JobStream)
-	mux.HandleFunc("POST /api/jobs/clear", h.ClearQueue)
-	mux.HandleFunc("GET /api/jobs/{id}", h.GetJob)
-	mux.HandleFunc("DELETE /api/jobs/{id}", h.CancelJob)
-	mux.HandleFunc("POST /api/jobs/{id}/retry", h.RetryJob)
-
-	mux.HandleFunc("GET /api/config", h.GetConfig)
-	mux.HandleFunc("PUT /api/config", h.UpdateConfig)
-
-	mux.HandleFunc("GET /api/stats", h.Stats)
-	mux.HandleFunc("POST /api/cache/clear", h.ClearCache)
-	mux.HandleFunc("POST /api/pushover/test", h.TestPushover)
 
 	return mux
 }

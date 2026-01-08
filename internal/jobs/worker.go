@@ -12,6 +12,7 @@ import (
 	"github.com/gwlsn/shrinkray/internal/config"
 	"github.com/gwlsn/shrinkray/internal/ffmpeg"
 	"github.com/gwlsn/shrinkray/internal/logger"
+	"github.com/gwlsn/shrinkray/internal/util"
 )
 
 // CacheInvalidator is called when a file is transcoded to invalidate cached probe data
@@ -330,7 +331,7 @@ func (w *Worker) processJob(job *Job) {
 	// Start progress forwarding
 	go func() {
 		for progress := range progressCh {
-			eta := formatDuration(progress.ETA)
+			eta := util.FormatDuration(progress.ETA)
 			w.queue.UpdateProgress(job.ID, progress.Percent, progress.Speed, eta)
 		}
 	}()
@@ -358,7 +359,7 @@ func (w *Worker) processJob(job *Job) {
 			retryProgressCh := make(chan ffmpeg.Progress, 10)
 			go func() {
 				for progress := range retryProgressCh {
-					eta := formatDuration(progress.ETA)
+					eta := util.FormatDuration(progress.ETA)
 					w.queue.UpdateProgress(job.ID, progress.Percent, progress.Speed, eta)
 				}
 			}()
@@ -396,12 +397,12 @@ func (w *Worker) processJob(job *Job) {
 	if result.OutputSize >= job.InputSize && !w.cfg.KeepLargerFiles {
 		// Delete the temp file and fail the job
 		os.Remove(tempPath)
-		logger.Warn("Job skipped - output larger than input", "job_id", job.ID, "input_size", formatBytes(job.InputSize), "output_size", formatBytes(result.OutputSize))
+		logger.Warn("Job skipped - output larger than input", "job_id", job.ID, "input_size", util.FormatBytes(job.InputSize), "output_size", util.FormatBytes(result.OutputSize))
 		_ = w.queue.FailJob(job.ID, fmt.Sprintf("Transcoded file (%s) is larger than original (%s). File skipped.",
-			formatBytes(result.OutputSize), formatBytes(job.InputSize)))
+			util.FormatBytes(result.OutputSize), util.FormatBytes(job.InputSize)))
 		return
 	} else if result.OutputSize >= job.InputSize {
-		logger.Warn("Output larger than input but keeping (keep_larger_files enabled)", "job_id", job.ID, "input_size", formatBytes(job.InputSize), "output_size", formatBytes(result.OutputSize))
+		logger.Warn("Output larger than input but keeping (keep_larger_files enabled)", "job_id", job.ID, "input_size", util.FormatBytes(job.InputSize), "output_size", util.FormatBytes(result.OutputSize))
 	}
 
 	// Finalize the transcode (handle original file)
@@ -426,7 +427,7 @@ func (w *Worker) processJob(job *Job) {
 	elapsed := time.Since(startTime)
 	saved := job.InputSize - result.OutputSize
 
-	logger.Info("Job complete", "job_id", job.ID, "duration", formatDuration(elapsed), "saved", formatBytes(saved))
+	logger.Info("Job complete", "job_id", job.ID, "duration", util.FormatDuration(elapsed), "saved", util.FormatBytes(saved))
 
 	// Mark job complete
 	_ = w.queue.CompleteJob(job.ID, finalPath, result.OutputSize)
@@ -455,39 +456,6 @@ func (w *Worker) CancelAndStop() {
 
 	// Then stop the worker
 	w.Stop()
-}
-
-// formatDuration formats a duration as a human-readable string
-func formatDuration(d time.Duration) string {
-	if d < 0 {
-		return ""
-	}
-
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-
-	if h > 0 {
-		return fmt.Sprintf("%dh %dm", h, m)
-	}
-	if m > 0 {
-		return fmt.Sprintf("%dm %ds", m, s)
-	}
-	return fmt.Sprintf("%ds", s)
-}
-
-// formatBytes formats bytes as a human-readable string
-func formatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 // isHWDecodeFailure checks if the error indicates a hardware decode failure

@@ -52,6 +52,35 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
+// Validation helpers for config updates
+
+// validateQuality validates a quality/CRF value for the given codec.
+// Returns an error message if invalid, empty string if valid.
+func validateQuality(value int, codec string) string {
+	var min, max int
+	switch codec {
+	case "hevc":
+		min, max = 15, 40
+	case "av1":
+		min, max = 20, 50
+	default:
+		return fmt.Sprintf("unknown codec: %s", codec)
+	}
+	if value < min || value > max {
+		return fmt.Sprintf("quality_%s must be between %d and %d", codec, min, max)
+	}
+	return ""
+}
+
+// validateScheduleHour validates a schedule hour value (0-23).
+// Returns an error message if invalid, empty string if valid.
+func validateScheduleHour(value int, field string) string {
+	if value < 0 || value > 23 {
+		return fmt.Sprintf("%s must be between 0 and 23", field)
+	}
+	return ""
+}
+
 // Browse handles GET /api/browse?path=...
 func (h *Handler) Browse(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
@@ -309,20 +338,18 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Handle quality settings
 	if req.QualityHEVC != nil {
-		quality := *req.QualityHEVC
-		if quality < 15 || quality > 40 {
-			writeError(w, http.StatusBadRequest, "quality_hevc must be between 15 and 40")
+		if errMsg := validateQuality(*req.QualityHEVC, "hevc"); errMsg != "" {
+			writeError(w, http.StatusBadRequest, errMsg)
 			return
 		}
-		h.cfg.QualityHEVC = quality
+		h.cfg.QualityHEVC = *req.QualityHEVC
 	}
 	if req.QualityAV1 != nil {
-		quality := *req.QualityAV1
-		if quality < 20 || quality > 50 {
-			writeError(w, http.StatusBadRequest, "quality_av1 must be between 20 and 50")
+		if errMsg := validateQuality(*req.QualityAV1, "av1"); errMsg != "" {
+			writeError(w, http.StatusBadRequest, errMsg)
 			return
 		}
-		h.cfg.QualityAV1 = quality
+		h.cfg.QualityAV1 = *req.QualityAV1
 	}
 
 	// Handle schedule settings
@@ -330,20 +357,18 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		h.cfg.ScheduleEnabled = *req.ScheduleEnabled
 	}
 	if req.ScheduleStartHour != nil {
-		hour := *req.ScheduleStartHour
-		if hour < 0 || hour > 23 {
-			writeError(w, http.StatusBadRequest, "schedule_start_hour must be between 0 and 23")
+		if errMsg := validateScheduleHour(*req.ScheduleStartHour, "schedule_start_hour"); errMsg != "" {
+			writeError(w, http.StatusBadRequest, errMsg)
 			return
 		}
-		h.cfg.ScheduleStartHour = hour
+		h.cfg.ScheduleStartHour = *req.ScheduleStartHour
 	}
 	if req.ScheduleEndHour != nil {
-		hour := *req.ScheduleEndHour
-		if hour < 0 || hour > 23 {
-			writeError(w, http.StatusBadRequest, "schedule_end_hour must be between 0 and 23")
+		if errMsg := validateScheduleHour(*req.ScheduleEndHour, "schedule_end_hour"); errMsg != "" {
+			writeError(w, http.StatusBadRequest, errMsg)
 			return
 		}
-		h.cfg.ScheduleEndHour = hour
+		h.cfg.ScheduleEndHour = *req.ScheduleEndHour
 	}
 
 	// Persist config to disk
@@ -382,11 +407,6 @@ func (h *Handler) TestPushover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "Test notification sent"})
-}
-
-// GetPushover returns the Pushover client (for SSE handler)
-func (h *Handler) GetPushover() *pushover.Client {
-	return h.pushover
 }
 
 // RetryJob handles POST /api/jobs/:id/retry

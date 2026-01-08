@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gwlsn/shrinkray/internal/logger"
+	"github.com/gwlsn/shrinkray/internal/util"
 )
 
 // JobStream handles GET /api/jobs/stream (SSE endpoint)
@@ -83,7 +84,7 @@ func (h *Handler) checkAndSendNotification(w http.ResponseWriter, flusher http.F
 
 	// Queue is empty, send notification
 	message := fmt.Sprintf("%d jobs complete, %d failed\nSaved %s",
-		stats.Complete, stats.Failed, formatBytes(stats.TotalSaved))
+		stats.Complete, stats.Failed, util.FormatBytes(stats.TotalSaved))
 
 	if err := h.pushover.Send("Shrinkray Complete", message); err != nil {
 		// Log error but don't crash - leave checkbox checked for retry
@@ -103,21 +104,4 @@ func (h *Handler) checkAndSendNotification(w http.ResponseWriter, flusher http.F
 	})
 	fmt.Fprintf(w, "data: %s\n\n", notifyData)
 	flusher.Flush()
-}
-
-// formatBytes formats bytes into a human-readable string
-func formatBytes(bytes int64) string {
-	if bytes < 0 {
-		bytes = 0
-	}
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

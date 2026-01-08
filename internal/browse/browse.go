@@ -61,18 +61,22 @@ func NewBrowser(prober *ffmpeg.Prober, mediaRoot string) *Browser {
 	}
 }
 
-// Browse returns the contents of a directory
-func (b *Browser) Browse(ctx context.Context, path string) (*BrowseResult, error) {
-	// Convert to absolute path for consistent comparisons
+// normalizePath converts a path to an absolute path and ensures it's within the media root.
+// If the path is outside the media root, it returns the media root instead.
+func (b *Browser) normalizePath(path string) string {
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
 		cleanPath = filepath.Clean(path)
 	}
-
-	// Ensure path is within media root
 	if !strings.HasPrefix(cleanPath, b.mediaRoot) {
-		cleanPath = b.mediaRoot
+		return b.mediaRoot
 	}
+	return cleanPath
+}
+
+// Browse returns the contents of a directory
+func (b *Browser) Browse(ctx context.Context, path string) (*BrowseResult, error) {
+	cleanPath := b.normalizePath(path)
 
 	entries, err := os.ReadDir(cleanPath)
 	if err != nil {
@@ -198,94 +202,20 @@ func (b *Browser) getProbeResult(ctx context.Context, path string) *ffmpeg.Probe
 	return result
 }
 
-// GetVideoFiles returns all video files in the given paths (files or directories)
-// For directories, it recursively finds all video files
-func (b *Browser) GetVideoFiles(ctx context.Context, paths []string) ([]*ffmpeg.ProbeResult, error) {
-	var results []*ffmpeg.ProbeResult
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, path := range paths {
-		// Convert to absolute path for consistent comparisons
-		cleanPath, err := filepath.Abs(path)
-		if err != nil {
-			cleanPath = filepath.Clean(path)
-		}
-
-		// Ensure path is within media root
-		if !strings.HasPrefix(cleanPath, b.mediaRoot) {
-			continue
-		}
-
-		info, err := os.Stat(cleanPath)
-		if err != nil {
-			continue
-		}
-
-		if info.IsDir() {
-			// Recursively find video files
-			err := filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil // Skip errors
-				}
-				if info.IsDir() {
-					return nil
-				}
-				if !ffmpeg.IsVideoFile(filePath) {
-					return nil
-				}
-
-				wg.Add(1)
-				go func(fp string) {
-					defer wg.Done()
-					if result := b.getProbeResult(ctx, fp); result != nil {
-						mu.Lock()
-						results = append(results, result)
-						mu.Unlock()
-					}
-				}(filePath)
-
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-		} else if ffmpeg.IsVideoFile(cleanPath) {
-			wg.Add(1)
-			go func(fp string) {
-				defer wg.Done()
-				if result := b.getProbeResult(ctx, fp); result != nil {
-					mu.Lock()
-					results = append(results, result)
-					mu.Unlock()
-				}
-			}(cleanPath)
-		}
-	}
-
-	wg.Wait()
-
-	// Sort by path for consistent ordering
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Path < results[j].Path
-	})
-
-	return results, nil
-}
-
 // GetVideoFilesWithProgress returns all video files with progress reporting
 // The onProgress callback is called periodically with (probed, total) counts
 func (b *Browser) GetVideoFilesWithProgress(ctx context.Context, paths []string, onProgress ProgressCallback) ([]*ffmpeg.ProbeResult, error) {
 	// First pass: count total video files (fast, no probing)
 	var videoPaths []string
 	for _, path := range paths {
-		cleanPath, err := filepath.Abs(path)
-		if err != nil {
-			cleanPath = filepath.Clean(path)
-		}
-
-		if !strings.HasPrefix(cleanPath, b.mediaRoot) {
-			continue
+		cleanPath := b.normalizePath(path)
+		// Skip if path was outside media root (normalizePath returns mediaRoot in that case)
+		if cleanPath == b.mediaRoot && path != b.mediaRoot && path != "" {
+			// Check if original path was actually trying to access something outside
+			absPath, _ := filepath.Abs(path)
+			if !strings.HasPrefix(absPath, b.mediaRoot) {
+				continue
+			}
 		}
 
 		info, err := os.Stat(cleanPath)

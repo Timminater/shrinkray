@@ -105,13 +105,9 @@ func main() {
 	}
 	fmt.Printf("  Workers:      %d\n", cfg.Workers)
 	fmt.Printf("  Original:     %s\n", cfg.OriginalHandling)
+	fmt.Printf("  FFmpeg:       %s\n", cfg.FFmpegPath)
+	fmt.Printf("  FFprobe:      %s\n", cfg.FFprobePath)
 	fmt.Println()
-
-	// Check ffmpeg/ffprobe availability
-	if err := checkFFmpeg(cfg); err != nil {
-		logger.Error("FFmpeg check failed", "error", err)
-		os.Exit(1)
-	}
 
 	// Detect available hardware encoders
 	ffmpeg.DetectEncoders(cfg.FFmpegPath)
@@ -189,10 +185,4 @@ func main() {
 
 	logger.Info("Server stopped")
 	fmt.Println("  Goodbye!")
-}
-
-func checkFFmpeg(cfg *config.Config) error {
-	fmt.Printf("  FFmpeg:       %s\n", cfg.FFmpegPath)
-	fmt.Printf("  FFprobe:      %s\n", cfg.FFprobePath)
-	return nil
 }

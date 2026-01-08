@@ -270,13 +270,6 @@ func testEncoder(ffmpegPath string, encoder string) bool {
 	return err == nil
 }
 
-// GetAvailableEncoders returns all detected encoders (must call DetectEncoders first)
-func GetAvailableEncoders() map[EncoderKey]*HWEncoder {
-	availableEncoders.mu.RLock()
-	defer availableEncoders.mu.RUnlock()
-	return copyEncoders(availableEncoders.encoders)
-}
-
 // GetVAAPIDevice returns the auto-detected VAAPI device path, or a default
 func GetVAAPIDevice() string {
 	availableEncoders.mu.RLock()
