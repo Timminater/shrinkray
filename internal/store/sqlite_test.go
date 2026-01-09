@@ -425,11 +425,13 @@ func TestSQLiteStore_Stats(t *testing.T) {
 	complete1.Status = jobs.StatusComplete
 	complete1.SpaceSaved = 100000
 	store.SaveJob(complete1)
+	store.AddToLifetimeSaved(complete1.SpaceSaved) // Increment counters
 
 	complete2 := createTestJob("complete2")
 	complete2.Status = jobs.StatusComplete
 	complete2.SpaceSaved = 200000
 	store.SaveJob(complete2)
+	store.AddToLifetimeSaved(complete2.SpaceSaved) // Increment counters
 
 	failed := createTestJob("failed")
 	failed.Status = jobs.StatusFailed
@@ -463,8 +465,15 @@ func TestSQLiteStore_Stats(t *testing.T) {
 	if stats.Cancelled != 1 {
 		t.Errorf("expected Cancelled 1, got %d", stats.Cancelled)
 	}
+	// TotalSaved now equals SessionSaved for API compatibility
 	if stats.TotalSaved != 300000 {
-		t.Errorf("expected TotalSaved 300000, got %d", stats.TotalSaved)
+		t.Errorf("expected TotalSaved (session) 300000, got %d", stats.TotalSaved)
+	}
+	if stats.SessionSaved != 300000 {
+		t.Errorf("expected SessionSaved 300000, got %d", stats.SessionSaved)
+	}
+	if stats.LifetimeSaved != 300000 {
+		t.Errorf("expected LifetimeSaved 300000, got %d", stats.LifetimeSaved)
 	}
 }
 

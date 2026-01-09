@@ -22,7 +22,15 @@ type Store interface {
 	AppendToOrder(id string) error
 	RemoveFromOrder(id string) error
 	ResetRunningJobs() (int, error)
+	AddToLifetimeSaved(bytes int64) error
 	Close() error
+}
+
+// StoreWithStats extends Store with session/lifetime stats support.
+// Stores that implement this interface can provide accurate session/lifetime stats.
+type StoreWithStats interface {
+	Store
+	SessionLifetimeStats() (sessionSaved, lifetimeSaved int64, err error)
 }
 
 // Queue manages the job queue with persistence
@@ -337,6 +345,14 @@ func (q *Queue) CompleteJob(id string, outputPath string, outputSize int64) erro
 	job.TempPath = "" // Clear temp path
 
 	q.persist(job)
+
+	// Update session/lifetime saved counters
+	if q.store != nil && job.SpaceSaved > 0 {
+		if err := q.store.AddToLifetimeSaved(job.SpaceSaved); err != nil {
+			logger.Warn("Failed to update saved stats", "error", err)
+		}
+	}
+
 	q.broadcast(JobEvent{Type: "complete", Job: job})
 
 	return nil
@@ -476,13 +492,15 @@ func (q *Queue) BroadcastProgress(probed, total int) {
 
 // Stats returns queue statistics
 type Stats struct {
-	Pending   int   `json:"pending"`
-	Running   int   `json:"running"`
-	Complete  int   `json:"complete"`
-	Failed    int   `json:"failed"`
-	Cancelled int   `json:"cancelled"`
-	Total     int   `json:"total"`
-	TotalSaved int64 `json:"total_saved"` // Total bytes saved by completed jobs
+	Pending       int   `json:"pending"`
+	Running       int   `json:"running"`
+	Complete      int   `json:"complete"`
+	Failed        int   `json:"failed"`
+	Cancelled     int   `json:"cancelled"`
+	Total         int   `json:"total"`
+	TotalSaved    int64 `json:"total_saved"`    // For API compatibility (= session_saved)
+	SessionSaved  int64 `json:"session_saved"`  // Bytes saved this session
+	LifetimeSaved int64 `json:"lifetime_saved"` // All-time bytes saved
 }
 
 func (q *Queue) Stats() Stats {
@@ -506,6 +524,17 @@ func (q *Queue) Stats() Stats {
 			stats.Cancelled++
 		}
 	}
+
+	// Get session/lifetime stats from store if available
+	if sws, ok := q.store.(StoreWithStats); ok {
+		sessionSaved, lifetimeSaved, err := sws.SessionLifetimeStats()
+		if err == nil {
+			stats.SessionSaved = sessionSaved
+			stats.LifetimeSaved = lifetimeSaved
+			stats.TotalSaved = sessionSaved // Header shows session saved
+		}
+	}
+
 	return stats
 }
 

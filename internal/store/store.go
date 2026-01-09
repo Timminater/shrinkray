@@ -45,17 +45,27 @@ type Store interface {
 	// Stats returns queue statistics.
 	Stats() (Stats, error)
 
+	// ResetSession resets the session start time to now.
+	// After reset, SessionSaved will start counting from 0.
+	ResetSession() error
+
+	// AddToLifetimeSaved increments the lifetime saved counter.
+	// Call this when a job completes successfully.
+	AddToLifetimeSaved(bytes int64) error
+
 	// Close closes the store and releases resources.
 	Close() error
 }
 
 // Stats holds queue statistics.
 type Stats struct {
-	Pending    int   `json:"pending"`
-	Running    int   `json:"running"`
-	Complete   int   `json:"complete"`
-	Failed     int   `json:"failed"`
-	Cancelled  int   `json:"cancelled"`
-	Total      int   `json:"total"`
-	TotalSaved int64 `json:"total_saved"` // Total bytes saved by completed jobs
+	Pending       int   `json:"pending"`
+	Running       int   `json:"running"`
+	Complete      int   `json:"complete"`
+	Failed        int   `json:"failed"`
+	Cancelled     int   `json:"cancelled"`
+	Total         int   `json:"total"`
+	TotalSaved    int64 `json:"total_saved"`    // For API compatibility (= session_saved)
+	SessionSaved  int64 `json:"session_saved"`  // Bytes saved this session
+	LifetimeSaved int64 `json:"lifetime_saved"` // All-time bytes saved
 }

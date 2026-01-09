@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 const schema = `
 CREATE TABLE IF NOT EXISTS jobs (
@@ -50,6 +51,12 @@ CREATE TABLE IF NOT EXISTS job_order (
 CREATE TABLE IF NOT EXISTS schema_version (
 	version INTEGER NOT NULL,
 	applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stats_metadata (
+	key TEXT PRIMARY KEY,
+	value TEXT NOT NULL,
+	updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
@@ -95,15 +102,56 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	var version int
 	err = db.QueryRow("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").Scan(&version)
 	if err == sql.ErrNoRows {
-		// Fresh database, insert version
+		// Fresh database, insert version and initialize stats_metadata
 		_, err = db.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)
 		if err != nil {
 			db.Close()
 			return nil, fmt.Errorf("insert schema version: %w", err)
 		}
+		// Initialize stats_metadata with default values
+		_, err = db.Exec(`
+			INSERT OR IGNORE INTO stats_metadata (key, value) VALUES
+				('session_saved', '0'),
+				('lifetime_saved', '0')
+		`)
+		if err != nil {
+			db.Close()
+			return nil, fmt.Errorf("init stats metadata: %w", err)
+		}
 	} else if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("check schema version: %w", err)
+	} else if version < schemaVersion {
+		// Run migrations
+		if version < 2 {
+			// Migrate v1 -> v2: add stats_metadata table and initialize
+			_, err = db.Exec(`
+				CREATE TABLE IF NOT EXISTS stats_metadata (
+					key TEXT PRIMARY KEY,
+					value TEXT NOT NULL,
+					updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+				)
+			`)
+			if err != nil {
+				db.Close()
+				return nil, fmt.Errorf("create stats_metadata table: %w", err)
+			}
+			_, err = db.Exec(`
+				INSERT OR IGNORE INTO stats_metadata (key, value) VALUES
+					('session_saved', '0'),
+					('lifetime_saved', '0')
+			`)
+			if err != nil {
+				db.Close()
+				return nil, fmt.Errorf("init stats metadata: %w", err)
+			}
+		}
+		// Update version
+		_, err = db.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)
+		if err != nil {
+			db.Close()
+			return nil, fmt.Errorf("update schema version: %w", err)
+		}
 	}
 
 	return &SQLiteStore{db: db, path: dbPath}, nil
@@ -336,13 +384,28 @@ func (s *SQLiteStore) ResetRunningJobs() (int, error) {
 	return int(count), err
 }
 
-// Stats returns queue statistics.
+// Stats returns queue statistics including session and lifetime savings.
 func (s *SQLiteStore) Stats() (Stats, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var stats Stats
 
+	// Get session_saved and lifetime_saved counters from stats_metadata
+	var sessionSavedStr, lifetimeSavedStr string
+	err := s.db.QueryRow(`SELECT value FROM stats_metadata WHERE key = 'session_saved'`).Scan(&sessionSavedStr)
+	if err != nil && err != sql.ErrNoRows {
+		return stats, fmt.Errorf("get session saved: %w", err)
+	}
+	err = s.db.QueryRow(`SELECT value FROM stats_metadata WHERE key = 'lifetime_saved'`).Scan(&lifetimeSavedStr)
+	if err != nil && err != sql.ErrNoRows {
+		return stats, fmt.Errorf("get lifetime saved: %w", err)
+	}
+
+	sessionSaved, _ := strconv.ParseInt(sessionSavedStr, 10, 64)
+	lifetimeSaved, _ := strconv.ParseInt(lifetimeSavedStr, 10, 64)
+
+	// Get job counts
 	row := s.db.QueryRow(`
 		SELECT
 			COUNT(*) as total,
@@ -350,14 +413,72 @@ func (s *SQLiteStore) Stats() (Stats, error) {
 			SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
 			SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as complete,
 			SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-			SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-			COALESCE(SUM(CASE WHEN status = 'complete' THEN space_saved ELSE 0 END), 0) as total_saved
+			SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
 		FROM jobs
 	`)
 
-	err := row.Scan(&stats.Total, &stats.Pending, &stats.Running, &stats.Complete,
-		&stats.Failed, &stats.Cancelled, &stats.TotalSaved)
-	return stats, err
+	err = row.Scan(&stats.Total, &stats.Pending, &stats.Running, &stats.Complete,
+		&stats.Failed, &stats.Cancelled)
+	if err != nil {
+		return stats, err
+	}
+
+	stats.SessionSaved = sessionSaved
+	stats.LifetimeSaved = lifetimeSaved
+	stats.TotalSaved = stats.SessionSaved // Header shows session saved for API compatibility
+
+	return stats, nil
+}
+
+// ResetSession resets the session saved counter to 0.
+func (s *SQLiteStore) ResetSession() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.Exec(`
+		UPDATE stats_metadata SET value = '0', updated_at = datetime('now')
+		WHERE key = 'session_saved'
+	`)
+	return err
+}
+
+// AddToLifetimeSaved increments both session and lifetime saved counters.
+// Call this when a job completes successfully.
+func (s *SQLiteStore) AddToLifetimeSaved(bytes int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Increment both session and lifetime counters
+	_, err := s.db.Exec(`
+		UPDATE stats_metadata
+		SET value = CAST((CAST(value AS INTEGER) + ?) AS TEXT),
+		    updated_at = datetime('now')
+		WHERE key IN ('session_saved', 'lifetime_saved')
+	`, bytes)
+	return err
+}
+
+// SessionLifetimeStats returns the session and lifetime saved bytes.
+// This implements the jobs.StoreWithStats interface.
+func (s *SQLiteStore) SessionLifetimeStats() (sessionSaved, lifetimeSaved int64, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Get session_saved and lifetime_saved counters from stats_metadata
+	var sessionSavedStr, lifetimeSavedStr string
+	err = s.db.QueryRow(`SELECT value FROM stats_metadata WHERE key = 'session_saved'`).Scan(&sessionSavedStr)
+	if err != nil && err != sql.ErrNoRows {
+		return 0, 0, fmt.Errorf("get session saved: %w", err)
+	}
+	err = s.db.QueryRow(`SELECT value FROM stats_metadata WHERE key = 'lifetime_saved'`).Scan(&lifetimeSavedStr)
+	if err != nil && err != sql.ErrNoRows {
+		return 0, 0, fmt.Errorf("get lifetime saved: %w", err)
+	}
+
+	sessionSaved, _ = strconv.ParseInt(sessionSavedStr, 10, 64)
+	lifetimeSaved, _ = strconv.ParseInt(lifetimeSavedStr, 10, 64)
+
+	return sessionSaved, lifetimeSaved, nil
 }
 
 // Close closes the database connection.
