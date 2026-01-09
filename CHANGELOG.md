@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.12] - 2026-01-08
+
+### Fixed
+- Fix running jobs skipped on container restart (#35)
+  - When container restarts while jobs are encoding, those jobs now correctly reset to pending
+  - Reset state is immediately persisted to disk so it survives further restarts
+  - Jobs restart from the beginning in the correct order
+
 ## [1.4.11] - 2026-01-08
 
 ### Fixed
