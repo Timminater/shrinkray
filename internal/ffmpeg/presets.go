@@ -333,8 +333,12 @@ func BuildPresetArgs(preset *Preset, sourceBitrate int64, sourceWidth, sourceHei
 	outputArgs = append(outputArgs, config.extraArgs...)
 
 	// Add stream mapping and copy audio/subtitles
+	// Use explicit stream selection to skip attached pictures (cover art)
+	// that cause hardware encoders to fail (issue #40)
 	outputArgs = append(outputArgs,
-		"-map", "0",
+		"-map", "0:v:0", // First video stream only
+		"-map", "0:a?",  // All audio streams (optional)
+		"-map", "0:s?",  // All subtitle streams (optional)
 		"-c:a", "copy",
 		"-c:s", "copy",
 	)
