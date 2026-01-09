@@ -141,7 +141,7 @@ func main() {
 	if err != nil {
 		logger.Error("Failed to initialize job queue", "error", err)
 		jobStore.Close()
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // store closed explicitly above
 	}
 
 	workerPool := jobs.NewWorkerPool(queue, cfg, browser.InvalidateCache)
